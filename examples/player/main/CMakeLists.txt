@@ -1,0 +1,40 @@
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "audio_visualizer.c"
+        "audio_output.c"
+        "flac_playback.cpp"
+        "sb_play3_output.c"
+        "i2s_output.c"
+        "sd_storage.c"
+        "music_library.c"
+        "music_player.c"
+        "buttons.c"
+        "st7789_display.c"
+        "utf8_font.c"
+        "web_server.c"
+        "wifi_ota.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        app_update
+        driver
+        esp_driver_spi
+        esp_event
+        esp_http_server
+        esp_lcd
+        esp_netif
+        esp_psram
+        esp_timer
+        esp_wifi
+        fatfs
+        lwip
+        esphome__micro-flac
+        nvs_flash
+        sdmmc
+        uac1_host
+        uac2_cx
+        usb
+)
+
+

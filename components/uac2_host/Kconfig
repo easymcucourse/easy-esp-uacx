@@ -1,0 +1,24 @@
+menu "UAC2 Host"
+    config UAC2_PCM
+        bool "PCM support"
+        default y
+    config UAC2_DOP
+        bool "DoP support"
+        default y
+    config UAC2_NATIVE_DSD
+        bool "Native DSD support"
+        default y
+    config UAC2_QUIRK_XMOS
+        bool "XMOS quirks"
+        default y
+    config UAC2_QUIRK_CMEDIA
+        bool "C-Media quirks"
+        default n
+    config UAC2_FEEDBACK
+        bool "Async feedback endpoint"
+        default y
+    config UAC2_NUM_TRANSFERS
+        int "ISO transfers in flight"
+        range 2 8
+        default 3
+endmenu

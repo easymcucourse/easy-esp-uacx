@@ -1,0 +1,6 @@
+version: "0.1.0"
+description: Small pluggable UAC2 host (ESP32-S3/P4)
+dependencies:
+  idf: ">=5.3"
+  usb: "*"
+
