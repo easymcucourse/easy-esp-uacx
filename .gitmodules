@@ -1,0 +1,9 @@
+[submodule "third_party/esp-uac2-host"]
+	path = third_party/esp-uac2-host
+	url = https://github.com/Averyy/esp-uac2-host
+[submodule "third_party/micro-flac"]
+	path = third_party/micro-flac
+	url = https://github.com/esphome-libs/micro-flac
+[submodule "third_party/esp-usb"]
+	path = third_party/esp-usb
+	url = https://github.com/espressif/esp-usb

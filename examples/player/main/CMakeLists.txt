@@ -29,11 +29,12 @@ idf_component_register(
         esp_wifi
         fatfs
         lwip
-        esphome__micro-flac
+        micro-flac
         nvs_flash
         sdmmc
-        uac1_host
-        uac2_cx
+        usb_host_uac
+        uac2_host
+        easy-esp-uacx
         usb
 )
 
