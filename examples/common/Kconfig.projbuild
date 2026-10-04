@@ -1,0 +1,8 @@
+menu "UAC2 example"
+    config EXAMPLE_PLAYBACK_TEST
+        bool "Run USB DAC playback tests after unit tests"
+        default y
+        help
+            Enumerate a UAC2 DAC and play four bars of Twinkle Twinkle at
+            44.1, 48, 96 and 192 kHz, skipping unsupported formats.
+endmenu
