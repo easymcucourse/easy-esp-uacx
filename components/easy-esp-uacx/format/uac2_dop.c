@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 easymcucourse
+ *
+ * SPDX-License-Identifier: MIT
+ */
 #include "uac2_internal.h"
 
 size_t uac2_dop_pack(dop_context_t *ctx, const uint8_t *dsd, size_t dsd_len,

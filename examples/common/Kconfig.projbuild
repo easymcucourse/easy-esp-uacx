@@ -3,6 +3,17 @@ menu "UAC2 example"
         bool "Run USB DAC playback tests after unit tests"
         default y
         help
-            Enumerate a UAC2 DAC and play four bars of Twinkle Twinkle at
-            44.1, 48, 96 and 192 kHz, skipping unsupported formats.
+            Enumerate a UAC2 DAC using easy_uacx.h and test push/pull PCM
+            at every advertised input bit depth and sample rate.
+    config EXAMPLE_PLAYBACK_BARS
+        int "Twinkle Twinkle bars per PCM matrix entry"
+        range 1 4
+        default 4
+    config EXAMPLE_SOAK_SECONDS
+        int "Continuous PCM pull playback after the matrix (seconds, 0 disables)"
+        range 0 86400
+        default 0
+    config EXAMPLE_LIFECYCLE_TEST
+        bool "Test init/deinit and heap recovery after the first matrix"
+        default y
 endmenu

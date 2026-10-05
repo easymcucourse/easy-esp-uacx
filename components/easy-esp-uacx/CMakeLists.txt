@@ -1,30 +1,33 @@
-set(srcs)
-file(GLOB core_srcs core/*.c)
-file(GLOB stream_srcs stream/*.c)
-file(GLOB port_srcs port/*.c)
-list(APPEND srcs ${core_srcs} ${stream_srcs} ${port_srcs} quirks/quirk_none.c quirks/quirk_table.c)
+# Public PCM runtime and private algorithm helpers used by regression tests.
+set(srcs
+    core/euacx_api.c
+    core/euacx_manager.c
+    core/euacx_bus.c
+    core/euacx_callback.c
+    core/euacx_parser.c
+    core/euacx_caps.c
+    core/euacx_control.c
+    stream/euacx_stream.c
+    stream/euacx_iso.c
+    stream/euacx_feed.c
+    stream/euacx_spsc.c
+    core/euacx_selector.c
+    stream/euacx_packetizer.c
+    stream/euacx_ring.c
+    format/euacx_pcm.c
+    format/uac2_dop.c
+    format/uac2_native_dsd.c
+    drivers/euacx_drivers.c
+    drivers/drv_generic.c
+    port/euacx_mem.c)
 
-list(APPEND srcs format/uac2_pcm.c)
-if(CONFIG_UAC2_DOP)
-    list(APPEND srcs format/uac2_dop.c)
-endif()
-if(CONFIG_UAC2_NATIVE_DSD)
-    list(APPEND srcs format/uac2_native_dsd.c)
-endif()
-if(CONFIG_UAC2_QUIRK_XMOS)
-    list(APPEND srcs quirks/quirk_xmos.c)
-endif()
-if(CONFIG_UAC2_QUIRK_CMEDIA)
-    list(APPEND srcs quirks/quirk_cmedia.c)
+if(CONFIG_EUACX_DRV_CX31993)
+    list(APPEND srcs drivers/drv_cx31993.c)
 endif()
 
-if(CONFIG_UAC2_QUIRK_CX31993)
-    list(APPEND srcs quirks/quirk_cx31993.c)
-endif()
-
+# DoP/native DSD are private legacy helpers retained for tests only.
 idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS include
                        PRIV_INCLUDE_DIRS private
-                       REQUIRES usb esp_timer
-                       PRIV_REQUIRES freertos heap)
-
+                       REQUIRES esp_common
+                       PRIV_REQUIRES usb freertos heap)

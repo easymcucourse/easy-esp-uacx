@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 easymcucourse
+ *
+ * SPDX-License-Identifier: MIT
+ */
 #include "uac2_internal.h"
 
 static esp_err_t nd_probe(const uac2_device_caps_t *d, const uac2_stream_cap_t *c, const uac2_stream_config_t *cfg)

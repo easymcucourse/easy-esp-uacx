@@ -1,27 +1,75 @@
-menu "UAC2 Host"
-    config UAC2_PCM
-        bool "PCM support"
-        default y
-    config UAC2_DOP
-        bool "DoP support"
-        default y
-    config UAC2_NATIVE_DSD
-        bool "Native DSD support"
-        default y
-    config UAC2_QUIRK_XMOS
-        bool "XMOS quirks"
-        default y
-    config UAC2_QUIRK_CMEDIA
-        bool "C-Media quirks"
+menu "Easy UAC2 playback"
+    config EUACX_DUMP_DESCRIPTORS
+        bool "Log accepted DAC configuration descriptor bytes"
         default n
-    config UAC2_QUIRK_CX31993
-        bool "Conexant CX31993 quirks"
+    config EUACX_DRV_CX31993
+        bool "Include CX31993 driver (06cb:1594)"
         default y
-    config UAC2_FEEDBACK
-        bool "Async feedback endpoint"
-        default y
-    config UAC2_NUM_TRANSFERS
+    config EUACX_NUM_TRANSFERS
         int "ISO transfers in flight"
         range 2 8
-        default 3
+        default 4
+    config EUACX_USE_VERIFIED_CAPS
+        bool "Use hardware-verified driver capabilities"
+        default y
+    config EUACX_BUFFER_MS
+        int "PCM ring buffer duration (milliseconds)"
+        range 10 1000
+        default 40
+    config EUACX_MAX_ERRORS
+        int "Consecutive ISO errors before stopping"
+        range 1 100
+        default 8
+    config EUACX_TASK_STACK
+        int "Manager task stack bytes"
+        range 4096 32768
+        default 8192
+    config EUACX_LIB_PRIORITY
+        int "USB library task priority"
+        range 1 24
+        default 20
+    config EUACX_PUMP_PRIORITY
+        int "USB event pump task priority"
+        range 2 24
+        default 19
+    config EUACX_PUMP_STACK
+        int "USB event pump stack bytes"
+        range 4096 32768
+        default 8192
+    config EUACX_INT_QUEUE_LEN
+        int "Internal event queue length"
+        range 1 128
+        default 8
+    config EUACX_REQ_QUEUE_LEN
+        int "API request queue length"
+        range 1 128
+        default 8
+    config EUACX_REQ_TIMEOUT_MS
+        int "API request enqueue timeout milliseconds"
+        range 1 60000
+        default 2000
+    config EUACX_CB_STACK
+        int "Callback task stack bytes"
+        range 4096 32768
+        default 4096
+    config EUACX_CB_QUEUE_LEN
+        int "Callback queue length"
+        range 1 128
+        default 16
+    config EUACX_FEED_PRIORITY
+        int "Pull feed task priority (below pump)"
+        range 1 18
+        default 10
+    config EUACX_FEED_STACK
+        int "Pull feed task stack bytes"
+        range 4096 32768
+        default 8192
+    config EUACX_FEED_RETRY_MS
+        int "Pull callback retry milliseconds"
+        range 1 100
+        default 2
+    config EUACX_RECOVERY_MS
+        int "Retry root enumeration without a DAC (0 disables)"
+        range 0 60000
+        default 5000
 endmenu

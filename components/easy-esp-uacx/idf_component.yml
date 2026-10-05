@@ -1,6 +1,10 @@
-version: "0.1.0"
-description: Small pluggable UAC2 host (ESP32-S3/P4)
+version: "1.0.0-rc.1"
+description: "Easy UAC2 playback driver (ESP32-S3/P4): PCM 16/24/32, push/pull, volume"
+license: "MIT"
+targets:
+  - esp32s3
+  - esp32p4
 dependencies:
-  idf: ">=5.3"
-  usb: "*"
+  idf: ">=5.4"
+  usb: "1.4.1"
 
