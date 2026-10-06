@@ -121,7 +121,7 @@ void app_main(void)
 
 1.0 范围是单 DAC、立体声 PCM。无录音、多设备、重采样或 DSD 转 PCM。当前公开一个默认 Host 端口：S3 FS、P4 HS；计划中的 P4 可选第二个 FS 根端口尚未提供后端，不能用枚举速度推断根控制器身份。
 
-显式反馈解析及调度已实现；CX31993 这份 FS 描述符没有反馈端点，尚未以异步反馈 DAC 做硬件验证。复杂时钟选择器/倍频器使用首个时钟源回退并记录警告。硬件音量当前支持单 RANGE 子区间；未支持的控制通过 `has_volume/has_mute` 和 `ESP_ERR_NOT_SUPPORTED` 表达。若应用使用已安装的 Host（`install_usb_host=false`），应用负责库事件任务、根端口恢复及最终卸载。
+显式反馈解析及调度已实现；CX31993 这份 FS 描述符没有反馈端点，尚未以异步反馈 DAC 做硬件验证。复杂时钟选择器/倍频器使用首个时钟源回退并记录警告。硬件音量使用首个 RANGE 子区间，枚举时检测并隔离不可信控制；未支持的控制通过 `has_volume/has_mute` 和 `ESP_ERR_NOT_SUPPORTED` 表达。若应用使用已安装的 Host（`install_usb_host=false`），应用负责库事件任务、根端口恢复及最终卸载。
 
 示例 `PASS` 表示播放流程及停止原因符合预期，声音质量仍需听音确认；最终停止日志中的 `errors/underruns` 用于验收。S3 Hub 使用 100 ms 复位恢复和 500 ms 上电等待；目前仍需验证复位后自动重连。
 
@@ -136,3 +136,7 @@ void app_main(void)
 | `third_party/esp-usb/` | 唯一保留的子模块，USB 类驱动参考 |
 
 自有代码采用 [MIT](LICENSE)，版权 easymcucourse；ESP-IDF 和 USB Host 依赖遵循各自许可证。设计参考 [Averyy/esp-uac2-host](https://github.com/Averyy/esp-uac2-host)（MIT），本仓库不包含其代码。
+
+## 设备行为参考
+
+设备行为事实参考 Linux 社区公开问题报告，协议实现依据 [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf)；本仓库不包含 Linux 代码或设备表。1.1 设备特例软件实现及验收进度见 [参考计划](plan-linux-quirks.zh.md)、[设备记录](docs/device-notes.md) 和组件贡献须知。主机测试现包含设备控制模拟；`./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` 检查关闭设备条目的配置。

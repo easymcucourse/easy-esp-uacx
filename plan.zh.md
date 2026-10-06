@@ -771,6 +771,7 @@ sequenceDiagram
 - 2026-10-05 整理时已直接运行 git、S3/P4 编译和主机单元测试；不再需要旧记录中的 shell 权限处理。
 
 ## 13. 已确认的决定
+- 设备特例：遵循 [Linux 设备行为参考计划](plan-linux-quirks.zh.md)，L0–L3 属于 1.1，L4 随 2.0；只提取设备事实，不导入 GPL 实现，保持 MIT。
 - 上游驱动：`uac2_host/` 完全删除，仓库不含上游代码和文档，只在 README 中声明参考（第 6.1 节）。
 - DSD：作为 2.0 版，1.0 完成后按实际的 DSD DAC 适配（第 9 节）；1.0 头文件已包含 DSD / DoP 接口，2.0 不改接口。
 - 用户接口：底层完全封装；状态通知只用函数回调（`on_connected` / `on_disconnected` / `on_stream_stopped`），不再使用 `esp_event` 和 `euacx_wait_event`；播放同时提供推送（`euacx_write`）和拉取（`on_data` 回调）两种方式（第 3 节）。

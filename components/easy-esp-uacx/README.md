@@ -81,15 +81,16 @@ API 请求入队成功后等待 manager 回复，不会让引用调用者栈内�
 
 ## 硬件音量与静音
 
-`has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认；get 返回首个支持通道。当前音量范围支持一个 RANGE 子区间，多个子区间暂不公布 `has_volume`。
+`has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认；get 返回首个支持通道。多个 RANGE 子区间使用第一个并警告；res 为 0 时按 1/256 dB 处理，固定或无效范围禁用硬件音量。枚举期间对首个可读写通道执行相邻步进检测并恢复原值，读回不可信时禁用对应控制。音量/静音失败不阻止枚举或停止播放（设备掉线仍按正常断开处理）。
 
-CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic 不主动覆盖设备音量。支持的静音控制在枚举初始化时解除。非 ASCII 产品字符串当前用 `?` 代替。
+CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic 的检测会恢复设备原音量。已声明读回不可信的设备在枚举时写入最小可用音量建立缓存，不读取 CUR。支持的静音控制在枚举初始化时解除。非 ASCII 产品字符串当前用 `?` 代替。
 
 ## 配置
 
 | 配置 | 默认 | 说明 |
 |---|---|---|
 | `EUACX_DRV_CX31993` | y | 专用驱动 |
+| `EUACX_DRV_REPORTED` | y | 允许公开报告支持的条目；当前尚无符合全部录入条件的新条目 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 使用已验证能力表（有表时） |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限；按管线容量和 2 的幂扩容 |
 | `EUACX_NUM_TRANSFERS` | 4 | 在途 ISO 传输数，2–8 |
@@ -105,14 +106,35 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | `EUACX_RECOVERY_MS` | 5000 | 无 DAC 的根端口恢复周期，0 关闭 |
 | `EUACX_DUMP_DESCRIPTORS` | n | 输出接受的配置描述符，便于建立真实测试夹具 |
 
-公开依赖只有 `esp_common`；USB/FreeRTOS/heap 是私有依赖。USB Host 固定 1.4.1，IDF ≥5.4，当前验证版本为 5.5.1。外部 Host 模式下，应用必须先安装 USB Host 并持续泵送库事件。
+公开依赖只有 `esp_common`；USB/FreeRTOS/heap/esp_rom 是私有依赖。USB Host 固定 1.4.1，IDF ≥5.4，当前验证版本为 5.5.1。外部 Host 模式下，应用必须先安装 USB Host 并持续泵送库事件。
 
 ## 新增驱动与测试
 
-在 `drivers/drv_<name>.c` 定义 `euacx_driver_t`，在 `euacx_drivers.c` 登记，并按需增加 Kconfig/CMake 条件。精确 VID:PID 优先于厂商通配，最后为 generic。驱动可使用 attach/detach、fixup_caps 和 stream_start/stop 钩子；这些钩子运行于 manager，不能同步调用公开 API。
+在 `drivers/drv_<name>.c` 定义 `euacx_driver_t`，在 `euacx_drivers.c` 登记，并按需增加 Kconfig/CMake 条件。精确 VID:PID 优先于厂商通配，最后为 generic；同一产品下命中的 bcdDevice 范围条目优先于无范围条目。控制和流特例必须精确到产品，不允许厂商通配。驱动可使用 attach/detach、fixup_caps 和 stream_start/stop 钩子；这些钩子运行于 manager，不能同步调用公开 API。
 
 已验证表按 FS/HS 分开，记录输入位深、实际 subslot 和严格升序的采样率；只录入实际听音或录音检查、传输通过的组合。`euacx_driver_validate` 检查条目。CX31993 FS 表登记本轮 S3 PCM16（subslot2）和 PCM24（subslot3）的 8/16/32/44.1/48/96 kHz；HS 表登记 P4 PCM16/24/32（subslot2/3/4）各八档，另含 192/384 kHz，经 48 次播放和 UR22C input 1/2 录音对照验证。FS 的 PCM32 端点 MPS768 超过 S3 实测 FIFO600，因此被枚举阶段的 host claim 探测排除。
 
-`test_pcm_model.c` 包含真实 CX31993 FS 描述符夹具，并测试播放时钟/FU、带宽、验证表与开流一致性、PCM 字节、反馈、RANGE、状态权限及计数器回绕。主机脚本运行 33 项纯算法测试；板上还执行实际 USB 库重复生命周期和生产写入函数的拼帧/超时/abort 测试。示例用公开 API 验证跨任务行为、完整矩阵和长时间播放。
+`test_pcm_model.c` 包含真实 CX31993 FS 描述符夹具，并测试播放时钟/FU、带宽、验证表与开流一致性、PCM 字节、反馈、RANGE、状态权限及计数器回绕。主机脚本还编译生产控制模块，替换传输/延时/接口 claim 以测试设备行为；板上还执行实际 USB 库重复生命周期和生产写入函数的拼帧/超时/abort 测试。示例用公开 API 验证跨任务行为、完整矩阵和长时间播放。
 
 显式反馈目前有算法测试，仍需异步 DAC 实机验收；未支持隐式反馈、复杂时钟路由和可选 P4 双根端口。旧 DoP/native DSD 算法及测试作为 2.0 私有参考保留，不接入 1.0 播放 API。
+
+## 设备特例与贡献须知
+
+按 [Linux 参考计划](../../plan-linux-quirks.zh.md) 实现 L0–L2 软件部分；L3 的新设备实测和 L4 原生 DSD 仍待后续。设备事实及出处集中在 [device-notes](../../docs/device-notes.md)，代码只保留名称和参数。`info.driver_flags` 用于查看匹配条目的行为；标志定义和 params 位于私有 `euacx_driver.h`。
+
+| 标志（`EUACX_DRV_` 前缀） | 行为 |
+|---|---|
+| `VOL_NO_READBACK` | 音量/静音跳过 CUR 读回，get 返回最后成功写入的缓存；部分通道写入失败后缓存无效 |
+| `VOL_MIN_IS_MUTE` | 公布的最小音量上调一个步进，设置到设备原最小值或更低时改为静音；需要可写静音 |
+| `VOL_RANGE` | params 提供 min/max/res，跳过设备 RANGE |
+| `NO_HW_VOLUME` | 不公布硬件音量 |
+| `CTL_DELAY` | 每次类请求后等待，1–20000 μs；毫秒级延时按调度 tick 向上取整 |
+| `RATE_NO_READBACK` | 设采样率后跳过频率 CUR 比较，保留时钟有效性检查 |
+| `ALT_BEFORE_RATE` | alt 0 → alt N → 设置采样率 |
+| `IFACE_DELAY` | SET_INTERFACE 到非零 alt 后等待 1–200 ms |
+
+默认顺序保持 alt 0 → 设置并读回采样率 → alt N。同位深/subslot 的 PCM alt 按最小可用 MPS 选择；设备声明有效 alt 控制时，设好频率后读取带长度字节的位图，排除无效候选，再尝试下一个。失败时回到 alt 0 并释放接口。缓冲及 ISO 传输按最终选中的 alt 分配。
+
+新增条目先写事实记录，再独立实现。`verified` 必须有本项目 S3/P4 实测，能力表还需听音或录音及传输验证；`reported` 必须有包含 USB ID 和现象的公开报告，设置 `.reported = true`，受 `EUACX_DRV_REPORTED` 控制且连接日志标明证据等级；`guess` 只进文档。协议版本未确定、现象无法对应本项目标志时暂不录入。每个新设备条目应独立提交并在提交说明写明现象和证据。
+
+本项目采用 MIT，不接受 Linux GPL 代码、头文件、宏、设备表或对其进行翻译/逐段改写；不得以 Linux 内部名称建立代码对应关系，也不得在编写实现时打开其源代码对照。Linux 社区报告只用于提取设备事实，协议实现依据 USB-IF 规范；不导入其他项目源码。2026-10-06 默认及关闭 CX31993/reported 两种配置各 55 项主机测试通过，S3/P4 示例编译通过；随后 P4 v1.3 上 39 项板上测试及 CX31993 的 48 次矩阵播放通过，拉取零错误/零欠载，用户确认声音正常；S3 与新特例设备仍待验收。主机测试先执行 `scripts/check_license.ps1` 和八个违规样例，扫描自有 components/examples/scripts 的源文件，排除第三方、文档和构建产物。

@@ -35,6 +35,7 @@ static void attach(euacx_context_t *c, uint8_t addr)
     euacx_dev_t *d = calloc(1, sizeof(*d));
     esp_err_t e = d ? usb_host_get_active_config_descriptor(usb, &config) : ESP_ERR_NO_MEM;
     if (e == ESP_OK) e = euacx_parse((const uint8_t *)config, config->wTotalLength, &d->caps);
+    if (d && d->caps.saw_uac1) ESP_LOGW("euacx", "ignore UAC1 interfaces: only UAC2 playback is supported");
     if (e == ESP_OK) e = usb_host_get_device_descriptor(usb, &descriptor);
     if (e == ESP_OK) e = usb_host_device_info(usb, &u);
     euacx_port_t *p = &c->port;
@@ -45,7 +46,7 @@ static void attach(euacx_context_t *c, uint8_t addr)
 #ifdef CONFIG_EUACX_DUMP_DESCRIPTORS
     ESP_LOG_BUFFER_HEX_LEVEL("euacx_desc", config, config->wTotalLength, ESP_LOG_INFO);
 #endif
-    d->usb = usb; d->claimed = -1; d->driver = euacx_driver_find(descriptor->idVendor, descriptor->idProduct);
+    d->usb = usb; d->claimed = -1; d->driver = euacx_driver_find(descriptor->idVendor, descriptor->idProduct, descriptor->bcdDevice);
     euacx_notice_t *connected = calloc(1, sizeof(*connected));
     d->disconnected = calloc(1, sizeof(*d->disconnected));
     if (!connected || !d->disconnected) { free(connected); free(d->disconnected); free(d); usb_host_device_close(c->client, usb); return; }
@@ -94,7 +95,11 @@ static void attach(euacx_context_t *c, uint8_t addr)
         }
         if (d->driver->verified && d->driver->verified->has_volume && p->info.has_volume) {
             int16_t volume = d->driver->verified->volume_db256;
-            e = euacx_hw_volume(p, true, &volume);
+            esp_err_t control_error = euacx_hw_volume(p, true, &volume);
+            if (control_error != ESP_OK) {
+                p->info.has_volume = false;
+                ESP_LOGW("euacx", "initial volume unavailable: %s", esp_err_to_name(control_error));
+            }
         }
     }
     if (e != ESP_OK || atomic_load(&p->gone)) {
@@ -107,8 +112,9 @@ static void attach(euacx_context_t *c, uint8_t addr)
     portEXIT_CRITICAL(&c->lock);
     connected->id = NOTICE_CONNECTED; connected->port = p; connected->conn = conn;
     euacx_notice_send(c, connected);
-    ESP_LOGI("euacx", "connected %04x:%04x driver=%s conn=%lu speed=%s verified=%u",
-             p->info.vid, p->info.pid, p->info.driver, (unsigned long)conn,
+    ESP_LOGI("euacx", "connected %04x:%04x driver=%s evidence=%s flags=%lx conn=%lu speed=%s verified=%u",
+             p->info.vid, p->info.pid, p->info.driver, d->driver->reported ? "reported" : d->driver->verified ? "verified" : "generic",
+             (unsigned long)p->info.driver_flags, (unsigned long)conn,
              p->info.speed == EUACX_SPEED_HS ? "HS" : "FS", p->info.verified);
 }
 
@@ -162,8 +168,8 @@ static bool service(euacx_context_t *c)
     if (s) {
         if (atomic_load(&s->started) && atomic_load(&s->warming) &&
             !atomic_load(&s->stop) && !atomic_load(&p->gone)) {
-            esp_err_t e = p->info.has_mute ? euacx_hw_mute(p, true, &s->restore_mute) : ESP_OK;
-            if (e != ESP_OK) atomic_store(&s->fault, true);
+            esp_err_t e = p->info.has_mute && s->restore_mute_valid ? euacx_hw_mute(p, true, &s->restore_mute) : ESP_OK;
+            if (e != ESP_OK) ESP_LOGW("euacx", "startup mute restore unavailable: %s", esp_err_to_name(e));
             atomic_store(&s->warming, false);
         }
         if (atomic_load(&p->gone)) euacx_stream_stop(p, atomic_load(&c->shutting) ? EUACX_STOP_CLOSED : EUACX_STOP_UNPLUGGED, ESP_OK);
@@ -202,8 +208,11 @@ static void dispatch(euacx_context_t *c, euacx_request_t *r)
             case REQ_VOLUME_SET: e = euacx_hw_volume(p, true, &r->volume); break;
             case REQ_VOLUME_GET: e = euacx_hw_volume(p, false, r->out); break;
             case REQ_MUTE_SET:
-                if (p->stream && atomic_load(&p->stream->warming)) p->stream->restore_mute = r->mute;
-                e = euacx_hw_mute(p, true, &r->mute); break;
+                e = euacx_hw_mute(p, true, &r->mute);
+                if (e == ESP_OK && p->stream && atomic_load(&p->stream->warming)) {
+                    p->stream->restore_mute = r->mute; p->stream->restore_mute_valid = true;
+                }
+                break;
             case REQ_MUTE_GET: e = euacx_hw_mute(p, false, r->out); break;
             default: break;
         }

@@ -165,15 +165,15 @@ TEST_CASE("drivers: exact product outranks earlier vendor wildcard", "[euacx][dr
     const euacx_driver_t vendor = { .name = "vendor", .vid = 0x1234 };
     const euacx_driver_t exact = { .name = "exact", .vid = 0x1234, .pid = 0x5678 };
     const euacx_driver_t *const table[] = { &vendor, &exact };
-    TEST_ASSERT_EQUAL_PTR(&exact, euacx_driver_match(table, 2, 0x1234, 0x5678));
-    TEST_ASSERT_EQUAL_PTR(&vendor, euacx_driver_match(table, 2, 0x1234, 0x9999));
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_match(table, 2, 0x9999, 0x5678));
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_match(NULL, 0, 0x1234, 0x5678));
+    TEST_ASSERT_EQUAL_PTR(&exact, euacx_driver_match(table, 2, 0x1234, 0x5678, 0));
+    TEST_ASSERT_EQUAL_PTR(&vendor, euacx_driver_match(table, 2, 0x1234, 0x9999, 0));
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_match(table, 2, 0x9999, 0x5678, 0));
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_match(NULL, 0, 0x1234, 0x5678, 0));
 }
 
 TEST_CASE("drivers: only verified CX31993 USB ID is registered", "[euacx][drivers]")
 {
-    const euacx_driver_t *d = euacx_driver_find(0x06cb, 0x1594);
+    const euacx_driver_t *d = euacx_driver_find(0x06cb, 0x1594, 0);
 #ifdef CONFIG_EUACX_DRV_CX31993
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_cx31993, d);
     TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
@@ -195,9 +195,9 @@ TEST_CASE("drivers: only verified CX31993 USB ID is registered", "[euacx][driver
 #else
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, d);
 #endif
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x0572, 0x1b08));
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x0572, 0x1b09));
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x20b1, 0x1234));
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x0572, 0x1b08, 0));
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x0572, 0x1b09, 0));
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x20b1, 0x1234, 0));
 }
 
 TEST_CASE("drivers: verified tables reject invalid bit depth and rate order", "[euacx][drivers]")

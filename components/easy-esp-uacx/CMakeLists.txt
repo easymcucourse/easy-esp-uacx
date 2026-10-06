@@ -7,6 +7,7 @@ set(srcs
     core/euacx_parser.c
     core/euacx_caps.c
     core/euacx_control.c
+    core/euacx_transport.c
     stream/euacx_stream.c
     stream/euacx_iso.c
     stream/euacx_feed.c
@@ -30,4 +31,4 @@ idf_component_register(SRCS ${srcs}
                        INCLUDE_DIRS include
                        PRIV_INCLUDE_DIRS private
                        REQUIRES esp_common
-                       PRIV_REQUIRES usb freertos heap)
+                       PRIV_REQUIRES usb freertos heap esp_rom)

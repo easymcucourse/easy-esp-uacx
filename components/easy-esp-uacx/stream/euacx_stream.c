@@ -75,35 +75,32 @@ esp_err_t euacx_stream_start(euacx_port_t *p, euacx_request_t *r)
     s->port = p; s->cfg = r->cfg; s->alt = *alt; s->owner = r->caller;
     s->stopped = calloc(1, sizeof(*s->stopped));
     s->writer = xSemaphoreCreateMutex();
-    uint64_t bytes = (uint64_t)r->cfg.sample_rate * 2 * alt->subslot * CONFIG_EUACX_BUFFER_MS / 1000;
+    esp_err_t e = (!s->stopped || !s->writer) ? ESP_ERR_NO_MEM : ESP_OK;
     unsigned base = p->info.speed == EUACX_SPEED_HS ? 8000 : 1000;
-    s->packets = p->info.speed == EUACX_SPEED_HS ? 32 : 8;
-    uint64_t max_frames = ((uint64_t)r->cfg.sample_rate * euacx_service_ticks(alt) + base - 1) / base;
-    if (alt->feedback_ep) ++max_frames;
-    uint64_t pipeline = max_frames * 2 * alt->subslot * s->packets * CONFIG_EUACX_NUM_TRANSFERS;
-    if (bytes < 2 * pipeline) bytes = 2 * pipeline;
-    s->ring.size = 256;
-    while (s->ring.size < bytes && s->ring.size < (1u << 23)) s->ring.size <<= 1;
-    s->ring.data = malloc(s->ring.size);
-    esp_err_t e = (!s->stopped || !s->writer || !s->ring.data || bytes > s->ring.size) ? ESP_ERR_NO_MEM : ESP_OK;
     atomic_store(&s->feed_exited, r->cfg.on_data == NULL);
     atomic_store(&s->feedback_q16, ((uint64_t)r->cfg.sample_rate << 16) / base);
     atomic_store(&s->warming, true);
     bool muted = false;
     if (e == ESP_OK && p->info.has_mute) {
-        e = euacx_hw_mute(p, false, &s->restore_mute);
+        esp_err_t mute_error = euacx_hw_mute(p, false, &s->restore_mute);
         bool on = true;
-        if (e == ESP_OK) { e = euacx_hw_mute(p, true, &on); muted = e == ESP_OK; }
+        if (mute_error == ESP_OK) { s->restore_mute_valid = true; mute_error = euacx_hw_mute(p, true, &on); muted = mute_error == ESP_OK; }
+        if (mute_error != ESP_OK) ESP_LOGW("euacx", "startup mute unavailable: %s", esp_err_to_name(mute_error));
     }
-    if (e == ESP_OK) e = usb_host_interface_claim(p->ctx->client, p->dev->usb, alt->interface, 0);
-    bool claimed = e == ESP_OK;
-    if (claimed) p->dev->claimed = alt->interface;
-    if (e == ESP_OK) e = euacx_set_interface(p, alt->interface, 0);
-    if (e == ESP_OK) e = euacx_clock_rate(p, alt, r->cfg.sample_rate);
-    if (claimed) { usb_host_interface_release(p->ctx->client, p->dev->usb, alt->interface); p->dev->claimed = -1; }
-    if (e == ESP_OK) e = usb_host_interface_claim(p->ctx->client, p->dev->usb, alt->interface, alt->alt);
-    if (e == ESP_OK) p->dev->claimed = alt->interface;
-    if (e == ESP_OK) e = euacx_set_interface(p, alt->interface, alt->alt);
+    if (e == ESP_OK) e = euacx_prepare_stream(p, &r->cfg, &s->alt);
+    alt = &s->alt;
+    if (e == ESP_OK) {
+        uint64_t bytes = (uint64_t)r->cfg.sample_rate * 2 * alt->subslot * CONFIG_EUACX_BUFFER_MS / 1000;
+        s->packets = p->info.speed == EUACX_SPEED_HS ? 32 : 8;
+        uint64_t max_frames = ((uint64_t)r->cfg.sample_rate * euacx_service_ticks(alt) + base - 1) / base;
+        if (alt->feedback_ep) ++max_frames;
+        uint64_t pipeline = max_frames * 2 * alt->subslot * s->packets * CONFIG_EUACX_NUM_TRANSFERS;
+        if (bytes < 2 * pipeline) bytes = 2 * pipeline;
+        s->ring.size = 256;
+        while (s->ring.size < bytes && s->ring.size < (1u << 23)) s->ring.size <<= 1;
+        s->ring.data = malloc(s->ring.size);
+        if (!s->ring.data || bytes > s->ring.size) e = ESP_ERR_NO_MEM;
+    }
     for (unsigned i = 0; e == ESP_OK && i < CONFIG_EUACX_NUM_TRANSFERS; ++i)
         e = usb_host_transfer_alloc((size_t)alt->mps * s->packets, s->packets, &s->transfers[i]);
     if (e == ESP_OK && alt->feedback_ep)
@@ -164,13 +161,13 @@ bool euacx_stream_finish(euacx_port_t *p)
     euacx_stream_state_t *s = p->stream;
     if (!s || !s->closing || atomic_load(&s->inflight) || atomic_load(&s->refs) || !atomic_load(&s->feed_exited)) return false;
     if (!atomic_load(&p->gone)) {
-        bool previous = s->restore_mute, on = true;
+        bool previous = s->restore_mute, on = true, can_restore = s->restore_mute_valid;
         if (p->info.has_mute) {
-            if (!atomic_load(&s->warming)) euacx_hw_mute(p, false, &previous);
-            euacx_hw_mute(p, true, &on);
+            if (!atomic_load(&s->warming) && euacx_hw_mute(p, false, &previous) == ESP_OK) can_restore = true;
+            if (can_restore) euacx_hw_mute(p, true, &on);
         }
         euacx_set_interface(p, s->alt.interface, 0);
-        if (p->info.has_mute && !atomic_load(&p->gone)) euacx_hw_mute(p, true, &previous);
+        if (p->info.has_mute && can_restore && !atomic_load(&p->gone)) euacx_hw_mute(p, true, &previous);
     }
     if (p->dev->driver->stream_stop) p->dev->driver->stream_stop(p->dev, p->dev->driver_ctx);
     if (p->dev->claimed >= 0) {

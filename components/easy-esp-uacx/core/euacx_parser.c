@@ -27,6 +27,7 @@ esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *d)
             save_alt(d, &cur, pcm, channels);
             memset(&cur, 0, sizeof(cur)); pcm = false; channels = 0;
             cls = p[5]; sub = p[6]; proto = p[7];
+            if (cls == 1 && (sub == 1 || sub == 2) && proto == 0) d->saw_uac1 = true;
             if (cls == 1 && sub == 1 && proto == 0x20) d->ac_interface = p[2];
             if (cls == 1 && sub == 2 && proto == 0x20 && p[3]) {
                 cur.interface = p[2]; cur.alt = p[3];
@@ -54,7 +55,7 @@ esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *d)
                 }
             }
         } else if (type == 0x24 && cls == 1 && proto == 0x20 && sub == 2 && cur.alt) {
-            if (len >= 16 && p[2] == 1) { pcm = p[5] == 1 && (le32(p + 6) & 1); channels = p[10]; cur.terminal = p[3]; }
+            if (len >= 16 && p[2] == 1) { pcm = p[5] == 1 && (le32(p + 6) & 1); channels = p[10]; cur.terminal = p[3]; cur.as_controls = p[4]; }
             if (len >= 6 && p[2] == 2 && p[3] == 1) { cur.subslot = p[4]; cur.bits = p[5]; }
         } else if (type == 5 && len >= 7 && cur.alt && (p[3] & 3) == 1) {
             uint16_t w = le16(p + 4);

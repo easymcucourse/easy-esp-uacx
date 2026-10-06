@@ -27,6 +27,12 @@ const euacx_alt_t *euacx_select_verified(const euacx_dev_caps_t *d, euacx_speed_
                                         const euacx_stream_config_t *req, const euacx_driver_t *driver,
                                         bool verified)
 {
+    return euacx_select_candidates(d, speed, req, driver, verified, 0);
+}
+const euacx_alt_t *euacx_select_candidates(const euacx_dev_caps_t *d, euacx_speed_t speed,
+                                          const euacx_stream_config_t *req, const euacx_driver_t *driver,
+                                          bool verified, uint32_t excluded)
+{
     if (!d || !req || req->format != EUACX_FORMAT_PCM || req->channels != 2 ||
         (req->bits != 16 && req->bits != 24 && req->bits != 32)) return NULL;
     const euacx_alt_t *best = NULL;
@@ -34,6 +40,7 @@ const euacx_alt_t *euacx_select_verified(const euacx_dev_caps_t *d, euacx_speed_
     unsigned count = v ? (speed == EUACX_SPEED_HS ? v->num_hs : v->num_fs) : 0;
     const euacx_verified_pcm_t *list = count ? (speed == EUACX_SPEED_HS ? v->hs : v->fs) : NULL;
     for (unsigned i = 0; i < d->num_alts; ++i) {
+        if (excluded & (1u << i)) continue;
         const euacx_alt_t *a = &d->alts[i];
         bool allowed = !list;
         for (unsigned x = 0; list && x < count; ++x) {
@@ -43,7 +50,8 @@ const euacx_alt_t *euacx_select_verified(const euacx_dev_caps_t *d, euacx_speed_
         }
         if (!allowed) continue;
         if (euacx_alt_fits(a, speed, req->sample_rate, req->bits) &&
-            (!best || a->bits < best->bits || (a->bits == best->bits && a->subslot < best->subslot))) best = a;
+            (!best || a->bits < best->bits || (a->bits == best->bits &&
+             (a->subslot < best->subslot || (a->subslot == best->subslot && a->mps < best->mps))))) best = a;
     }
     return best;
 }
@@ -51,6 +59,7 @@ void euacx_build_info(const euacx_dev_caps_t *d, const euacx_driver_t *driver, b
 {
     memset(out->pcm, 0, sizeof(out->pcm)); memset(&out->dsd, 0, sizeof(out->dsd));
     out->driver = driver->name;
+    out->driver_flags = driver->flags;
     const euacx_verified_caps_t *v = verified ? driver->verified : NULL;
     const euacx_verified_pcm_t *list = v ? (out->speed == EUACX_SPEED_HS ? v->hs : v->fs) : NULL;
     unsigned count = v ? (out->speed == EUACX_SPEED_HS ? v->num_hs : v->num_fs) : 0;

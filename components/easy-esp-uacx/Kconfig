@@ -1,4 +1,7 @@
 menu "Easy UAC2 playback"
+    config EUACX_DRV_REPORTED
+        bool "Include device behavior entries supported by public reports"
+        default y
     config EUACX_DUMP_DESCRIPTORS
         bool "Log accepted DAC configuration descriptor bytes"
         default n

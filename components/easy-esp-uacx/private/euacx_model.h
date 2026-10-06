@@ -10,6 +10,7 @@
 typedef struct {
     uint8_t interface, alt, ep, interval, terminal, clock, bits, subslot, sync;
     uint8_t feedback_ep, feedback_interval;
+    uint8_t as_controls; /* UAC2 AS_GENERAL bmControls */
     uint16_t mps, feedback_mps;
     euacx_rate_list_t rates;
 } euacx_alt_t;
@@ -23,6 +24,7 @@ typedef struct euacx_dev_caps {
     euacx_feature_t features[EUACX_MAX_FEATURES];
     uint8_t source[256], clock[256], clock_controls[256];
     bool clock_fallback;
+    bool saw_uac1;
 } euacx_dev_caps_t;
 
 esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *caps);
@@ -34,6 +36,9 @@ const euacx_alt_t *euacx_select(const euacx_dev_caps_t *caps, euacx_speed_t spee
 const euacx_alt_t *euacx_select_verified(const euacx_dev_caps_t *caps, euacx_speed_t speed,
                                         const euacx_stream_config_t *request, const euacx_driver_t *driver,
                                         bool verified);
+const euacx_alt_t *euacx_select_candidates(const euacx_dev_caps_t *caps, euacx_speed_t speed,
+                                          const euacx_stream_config_t *request, const euacx_driver_t *driver,
+                                          bool verified, uint32_t excluded);
 void euacx_build_info(const euacx_dev_caps_t *caps, const euacx_driver_t *driver,
                       bool verified, euacx_info_t *info);
 esp_err_t euacx_parse_rates(const uint8_t *data, size_t size, euacx_rate_list_t *rates);

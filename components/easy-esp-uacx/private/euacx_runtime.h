@@ -48,6 +48,8 @@ struct euacx_dev {
     euacx_notice_t *disconnected;
     int claimed;
     bool detached;
+    int16_t volume_cache, volume_raw_min;
+    bool volume_cached, mute_cache, mute_cached;
 };
 struct euacx_port {
     euacx_context_t *ctx;
@@ -72,7 +74,7 @@ struct euacx_stream_state {
     uint8_t partial[8], partial_size;
     usb_transfer_t *transfers[CONFIG_EUACX_NUM_TRANSFERS], *feedback;
     unsigned packets, consecutive_errors;
-    bool closing, restore_mute;
+    bool closing, restore_mute, restore_mute_valid;
     euacx_stop_reason_t reason;
     esp_err_t error;
     euacx_request_t *close_requests;
@@ -99,6 +101,13 @@ struct euacx_context {
 
 esp_err_t euacx_control(euacx_port_t *p, uint8_t type, uint8_t request,
                         uint16_t value, uint16_t index, void *data, uint16_t size);
+/* Transport seams are replaced only by the host test executable. */
+esp_err_t euacx_control_transfer(euacx_port_t *p, uint8_t type, uint8_t request,
+                                 uint16_t value, uint16_t index, void *data, uint16_t size);
+void euacx_control_delay(uint32_t microseconds);
+esp_err_t euacx_claim_interface(euacx_port_t *p, uint8_t interface, uint8_t alt);
+void euacx_release_interface(euacx_port_t *p);
+esp_err_t euacx_prepare_stream(euacx_port_t *p, const euacx_stream_config_t *cfg, euacx_alt_t *selected);
 esp_err_t euacx_set_interface(euacx_port_t *p, uint8_t interface, uint8_t alt);
 esp_err_t euacx_probe_controls(euacx_port_t *p);
 esp_err_t euacx_hw_volume(euacx_port_t *p, bool set, int16_t *value);

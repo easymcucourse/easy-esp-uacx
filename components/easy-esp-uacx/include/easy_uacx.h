@@ -47,6 +47,7 @@ typedef struct {
     uint16_t          vid, pid;
     char              product[32];
     const char       *driver;           /* matched driver name, "generic" if none */
+    uint32_t          driver_flags;     /* read-only device behavior flags */
     euacx_speed_t     speed;
     bool              verified;         /* capabilities come from the driver's verified table */
     euacx_rate_list_t pcm[3];           /* index 0/1/2 = 16/24/32-bit input */
