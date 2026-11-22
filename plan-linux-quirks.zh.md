@@ -9,14 +9,14 @@ todos:
     content: L1：euacx_driver_t 增加 flags 和 params，driver_validate 校验参数，单元测试覆盖
     status: completed
   - id: l1-control
-    content: L1：音量 / 静音通用检查（res 为 0、范围无效、读回失败检测，通道选择保持现有规则）和控制类标志
+    content: L1：音量 / 静音通用检查（res 为 0、范围无效、读回失败检测；主通道与左右通道同时可写时音量写主通道、左右保持单位增益）和控制类标志
     status: in_progress
   - id: l2-stream
     content: L2：采样率 / alt 切换类标志、同格式 alt 按最小 MPS 选择、AS_VAL_ALT_SETTINGS 校验
     status: in_progress
   - id: l3-entries
     content: L3：整理候选设备清单（只记录 VID:PID、现象、来源链接），按证据等级加入驱动表
-    status: in_progress
+    status: completed
   - id: l4-dsd
     content: L4（并入 2.0）：原生 DSD 的 alt 识别、字节序 / 位序、bcdDevice 匹配、模式切换钩子
     status: pending
@@ -115,6 +115,8 @@ typedef struct euacx_driver {
 | `EUACX_DRV_RATE_NO_READBACK` | 采样率 `GET_CUR` 出错或不准 | 只发 `SET_CUR`，不比较读回值 | L2 |
 | `EUACX_DRV_ALT_BEFORE_RATE` | 必须先选 alt 再设采样率 | 打开流的顺序改为 alt 0 → alt N → 设采样率 | L2 |
 | `EUACX_DRV_IFACE_DELAY` | 切换 alt 后需要时间稳定 | `SET_INTERFACE` 后等待 `iface_delay_ms` | L2 |
+| `EUACX_DRV_FS_OUT_MPS` | FS 下 ISO OUT MPS 声明过大，超过主机周期 FIFO | FS 下 claim 前把 MPS 降为 `fs_out_mps`（8–1023），设备不感知 | L2（2026-11-22） |
+| `EUACX_DRV_ALT_NO_READBACK` | `GET_INTERFACE` 返回错误的 alt | 信任成功的 `SET_INTERFACE`，不比较读回 | L2（2026-11-22） |
 | `EUACX_DRV_NATIVE_DSD` | 支持原生 DSD | 见第 7 节 | L4 |
 | `EUACX_DRV_DSD_LE` | 原生 DSD 每个 32 位字节序相反 | 打包时每 4 字节反序 | L4 |
 | `EUACX_DRV_DSD_BITREV` | DSD 字节内位序相反 | 打包时每字节位反转 | L4 |
@@ -261,3 +263,20 @@ L3 先整理候选清单，只记录 VID:PID、设备名、现象、来源链接
 已记录 PCM16 六档推送/拉取共 12 次、PCM24 的 8/16/32/44.1/48 kHz 推送/拉取共 10 次，合计 22 次 PASS；已完成流的 ISO 错误为 0，所有已完成拉取欠载为 0，无音量/静音读回失败。PCM24/96 kHz 开始时串口读取失败，COM9 随后从系统端口列表消失，因此缺少最后两次结果和最终矩阵汇总，不能标记完整 S3 验收通过。
 
 原始未完整日志为本机忽略的 `tmp/linux-s3-runtime.log`，采集错误为 `tmp/linux-s3-capture.log`，烧录记录为 `tmp/linux-s3-flash.log`。待连接恢复后重跑完整矩阵；本次声音尚未得到用户确认。
+
+## 13. 实施记录（2026-11-22）
+
+L3 达成：新增三台 UAC2 DAC 的 `verified` 条目（另有 UAC1 ES9318 单独接入），设备事实和证据见 [设备记录](docs/device-notes.zh.md#总览)。
+
+| 条目 | P4 HS | S3 FS | 新增行为 |
+|---|---|---|---|
+| CS43198 `2fc6:f0fc` | 48/48，听音确认 | 失败：限制 MPS 后传输正常但无声 | 无（P4 需周期 OUT FIFO 偏置） |
+| CS43131 `3302:98c2` | 48/48，录音确认 | 仅 44.1 kHz（6/6，录音确认） | `FS_OUT_MPS`、`ALT_NO_READBACK` |
+| ES9039Q2M `2fc6:f800` | 48/48，录音确认 | 失败：限制 MPS 后传输正常、反馈随采样率变化，但无声 | 主通道 + 左右通道音量级联修正 |
+
+- **新标志**：`EUACX_DRV_FS_OUT_MPS`（参数 `fs_out_mps`）、`EUACX_DRV_ALT_NO_READBACK`，见第 4.1 节。
+- **音量通道规则变更**：UAC2 中主通道与逻辑通道音量级联。原规则向所有可写通道写同一值，ES9039Q2M 上 −10.5 dB 实测为 −21 dB。现在两者同时可写时设定值写入主通道、左右通道设为单位增益（0 dB，按范围裁剪），get 返回主通道值。已登记的其他设备没有同时可写的主通道和左右通道音量，行为不变。
+- **听感验证**：矩阵 PASS 不能发现乱码或无声（CS43131 FS 48–96 kHz、CS43198 和 ES9039Q2M 的 S3 FS 都是传输全部通过但输出异常），因此新条目都以麦克风录音（与串口日志对齐、逐流比较旋律电平、宽带噪声和音高）作为登记能力表的依据。
+- **主机测试**：67 项，默认配置及逐个关闭各设备条目的配置均 0 失败；主机测试运行器的测试表上限由 64 提高到 128。
+
+仍待验收：上述设备的开流爆音、热插拔和 30 分钟播放；CX31993 的 S3 控制逻辑回归；L4 原生 DSD 随 2.0。

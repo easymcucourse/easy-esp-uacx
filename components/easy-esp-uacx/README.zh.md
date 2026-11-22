@@ -128,7 +128,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 
 ## 设备特例与贡献须知
 
-按 [Linux 参考计划](../../plan-linux-quirks.zh.md) 实现 L0–L2 软件部分；L3 的新设备实测和 L4 原生 DSD 仍待后续。设备事实及出处集中在 [device-notes](../../docs/device-notes.zh.md)，代码只保留名称和参数。`info.driver_flags` 用于查看匹配条目的行为；标志定义和 params 位于私有 `euacx_driver.h`。
+按 [Linux 参考计划](../../plan-linux-quirks.zh.md) 实现 L0–L2 软件部分；L3 已于 2026-11-22 新增 CS43198、CS43131 和 ES9039Q2M 的 verified 条目；L4 原生 DSD 仍待后续。设备事实及出处集中在 [device-notes](../../docs/device-notes.zh.md)，代码只保留名称和参数。`info.driver_flags` 用于查看匹配条目的行为；标志定义和 params 位于私有 `euacx_driver.h`。
 
 | 标志（`EUACX_DRV_` 前缀） | 行为 |
 |---|---|
@@ -140,6 +140,8 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | `RATE_NO_READBACK` | 设采样率后跳过频率 CUR 比较，保留时钟有效性检查 |
 | `ALT_BEFORE_RATE` | alt 0 → alt N → 设置采样率 |
 | `IFACE_DELAY` | SET_INTERFACE 到非零 alt 后等待 1–200 ms |
+| `FS_OUT_MPS` | 仅 FS：claim 前把缓存描述符和能力中超过 `params.fs_out_mps`（8–1023）的 ISO OUT 端点 MPS 降到该值；设备看不到这一修改 |
+| `ALT_NO_READBACK` | 信任成功的 SET_INTERFACE，跳过 GET_INTERFACE 比较 |
 
 UAC2 默认顺序为 alt 0 → 设置并读回采样率 → alt N。同位深/subslot 的 PCM alt 按最小可用 MPS 选择；设备声明有效 alt 控制时，设好频率后读取带长度字节的位图，排除无效候选，再尝试下一个。失败时回到 alt 0 并释放接口。缓冲及 ISO 传输按最终选中的 alt 分配。
 

@@ -41,10 +41,9 @@ DACs with a hardware-verified driver entry (environment: ESP-IDF 5.5.1, USB Host
 
 Notes:
 
-- ES9318 on P4 HS reports mute GET as always 0, so mute readback is disabled; volume readback works.
-- CS43198 declares a 776-byte ISO OUT MPS at both speeds. **S3 FS adaptation failed**: every alt exceeds the S3 600-byte FIFO, and experiments that capped the MPS or copied the Windows open order streamed cleanly but stayed silent, so S3 publishes no PCM capability for it ([details](docs/device-notes.md#s3-fs-adaptation-failed)). P4 needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (already set in `examples/p4/sdkconfig.defaults`).
-- CS43131 also declares a 776-byte ISO OUT MPS; on S3 FS the host pipe MPS is capped at 582 bytes. Its FS firmware only plays 44.1 kHz (other rates accepted by the clock come out garbled or muted), answers GET_INTERFACE with a wrong alt, and fails mute readback, so FS registers 44.1 kHz only, without mute. On P4 HS all eight rates play; like CS43198 it needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` ([details](docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio)).
-- ES9039Q2M also declares a 776-byte MPS and needs the same P4 FIFO bias. Its Feature Unit has volume on master and on both channels; these cascade, so the library puts the volume on master and holds the channels at 0 dB. **S3 FS adaptation failed** (streams cleanly with an MPS cap but stays silent, like CS43198), so S3 publishes no PCM capability for it ([details](docs/device-notes.md#2fc6f800-es9039q2m-sxw-mdl7601-intclk_a2)).
+- **P4 HS FIFO:** CS43198, CS43131 and ES9039Q2M declare a 776-byte ISO OUT MPS, above the 512-byte periodic TX FIFO of IDF's default split. P4 needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (already set in `examples/p4/sdkconfig.defaults`).
+- **S3 FS:** the same 776 bytes exceed S3's 600-byte periodic OUT FIFO. CS43131 caps the host pipe MPS at 582 and plays only 44.1 kHz at FS; other rates its clock accepts come out garbled or muted ([details](docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio)). CS43198 and ES9039Q2M stream cleanly with such a cap but stay silent, so **their S3 FS adaptation failed** and S3 publishes no PCM capability for them ([CS43198](docs/device-notes.md#s3-fs-adaptation-failed), [ES9039Q2M](docs/device-notes.md#2fc6f800-es9039q2m-sxw-mdl7601-intclk_a2)).
+- **Controls:** ES9318 on P4 HS and CS43131 report broken mute readback, so mute is not offered; volume works. CS43131 answers GET_INTERFACE with a wrong alt, so its alt readback is skipped. When master and channel volume are both writable (ES9039Q2M), the library puts the volume on master and holds the channels at 0 dB, because UAC2 cascades them.
 - Other standard UAC2 DACs fall back to the generic driver and may work, but are not verified. Reported candidates (Edifier MF200, SMSL, iFi iDSD) have no driver entry yet; see [device notes](docs/device-notes.md).
 - To add a DAC, collect its VID:PID, full descriptors and a reproduction, then follow the admission steps in the device notes.
 
@@ -122,6 +121,7 @@ The ES9318 (Savitech SA9023, `262a:0002`) S3 FS capability table contains PCM16/
 # Host tests need no board; require MinGW GCC and the Unity bundled with ESP-IDF
 ./scripts/test_host.ps1
 ./scripts/test_host.ps1 -WithoutCx31993
+# Also -WithoutEs9318, -WithoutCs43198, -WithoutCs43131, -WithoutEs9039, -WithoutReported
 ```
 
 | Option | Default | Purpose |

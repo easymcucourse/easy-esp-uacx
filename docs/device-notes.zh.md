@@ -6,6 +6,20 @@
 
 本文件仅记录 USB ID、现象及条件、出处和本项目证据，不记录外部驱动的实现。协议依据 USB-IF Audio 2.0 第 4.9.2、5.2.6.1.2、A.17.11 节；同格式最小 MPS 行为也见 [微软 USB Audio 2.0 文档](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/usb-2-0-audio-drivers)。UAC1 实机记录也列于此处。驱动条目按实际 USB ID 登记。
 
+## 总览
+
+| USB ID | 声卡 | 类别 | P4 HS | S3 FS | 标志 |
+|---|---|---|---|---|---|
+| `06cb:1594` | CX31993 | UAC2 | verified，PCM16/24/32 × 8 档 | verified，PCM16/24 × 6 档 | — |
+| `262a:0002` | ES9318 / SA9023 | UAC1 | （以 `262a:0001` 枚举） | verified，PCM16/24 × 5 档 | `ALT_BEFORE_RATE` |
+| `262a:0001` | ES9318 / SA9023（HS） | UAC2 | verified，PCM16/24/32 × 8 档 | — | — |
+| `2fc6:f0fc` | CS43198 | UAC2 | verified，PCM16/24/32 × 8 档 | **失败**（无声） | — |
+| `3302:98c2` | CS43131 | UAC2 | verified，PCM16/24/32 × 8 档 | verified，仅 44.1 kHz | `FS_OUT_MPS`、`ALT_NO_READBACK` |
+| `2fc6:f800` | ES9039Q2M | UAC2 | verified，PCM16/24/32 × 8 档 | **失败**（无声） | — |
+| `2d99:a024`、`152a:85dd`、`20b1:3008` | 候选 | — | 仅公开报告 | 仅公开报告 | 未加入 |
+
+声明 776 字节 MPS 的设备（CS43198、CS43131、ES9039Q2M）在 P4 上需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`。在 S3 上它们的 alt 超过 600 字节周期 OUT FIFO；`FS_OUT_MPS` 能让 alt 可被 claim，但只有 CS43131 能出声。
+
 ## 06cb:1594 CX31993
 - 现象：FS/HS 的 alt 与 Host FIFO 限制不同；音量使用左右可写通道，静音使用 master。
 - 来源：[本项目验收记录](../plan.zh.md)、[真实 FS 描述符](../components/easy-esp-uacx/test/fixtures/cx31993_fs.h)。
@@ -88,6 +102,6 @@ CS43198 **不支持 S3 FS**；条目不登记 FS 能力表，因此在 S3 上该
 
 ## 验收与录入
 
-CX31993、ES9318、CS43198、CS43131 和 ES9039Q2M 已登记为 `verified`。CS43198 是 L3 首个新增的 UAC2 DAC 条目，仅在 P4 HS 上验证（听音已确认，热插拔和 30 分钟播放待确认）；S3 FS 适配失败，见上文。CS43131 在 S3 FS 上仅验证 44.1 kHz，在 P4 HS 上验证八档采样率（两者录音均已确认）。ES9039Q2M 在 P4 HS 上验证八档采样率（录音已确认），S3 FS 适配失败。新增候选时应先采集实际 VID:PID、描述符和问题复现。
+已登记的 `verified` 条目及各板状态见上方总览。新增候选时应先采集实际 VID:PID、描述符和问题复现。
 
-对一个候选依次记录板型、完整描述符、bcdDevice、采样率/alt 请求顺序、控制写入和读回及听音/录音结果；完成矩阵及音量读回后更新等级。公开报告条目不带已实测能力表，猜测只保留本文件。
+对一个候选依次记录板型、完整描述符、bcdDevice、采样率/alt 请求顺序、控制写入和读回及听音/录音结果（与矩阵日志对齐的麦克风录音能发现 `RESULT PASS` 无法发现的乱码或无声）；完成矩阵及音量读回后更新等级。公开报告条目不带已实测能力表，猜测只保留本文件。

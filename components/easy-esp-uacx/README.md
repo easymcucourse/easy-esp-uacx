@@ -128,7 +128,7 @@ Explicit feedback currently has algorithm tests but still needs hardware accepta
 
 ## Device quirks and contribution guidelines
 
-The L0–L2 software parts follow the [Linux reference plan](../../plan-linux-quirks.zh.md) (Chinese); L3 hardware testing of new devices and L4 native DSD are still pending. Device facts and sources are kept in [device-notes](../../docs/device-notes.md); code keeps only names and parameters. `info.driver_flags` shows the behavior of the matched entry; flag definitions and params live in the private `euacx_driver.h`.
+The L0–L2 software parts follow the [Linux reference plan](../../plan-linux-quirks.zh.md) (Chinese); L3 added verified entries for CS43198, CS43131 and ES9039Q2M (2026-11-22); L4 native DSD is still pending. Device facts and sources are kept in [device-notes](../../docs/device-notes.md); code keeps only names and parameters. `info.driver_flags` shows the behavior of the matched entry; flag definitions and params live in the private `euacx_driver.h`.
 
 | Flag (`EUACX_DRV_` prefix) | Behavior |
 |---|---|
@@ -140,6 +140,8 @@ The L0–L2 software parts follow the [Linux reference plan](../../plan-linux-qu
 | `RATE_NO_READBACK` | Skip the frequency CUR comparison after setting the rate, keeping the clock-validity check |
 | `ALT_BEFORE_RATE` | alt 0 → alt N → set sample rate |
 | `IFACE_DELAY` | Wait 1–200 ms after SET_INTERFACE to a non-zero alt |
+| `FS_OUT_MPS` | At FS only, lower every ISO OUT endpoint MPS above `params.fs_out_mps` (8–1023) in the cached descriptor and caps before claim; the device never sees it |
+| `ALT_NO_READBACK` | Trust a successful SET_INTERFACE and skip the GET_INTERFACE comparison |
 
 The default UAC2 order is alt 0 → set and read back sample rate → alt N. Among PCM alts with the same bit depth/subslot, the one with the smallest usable MPS is chosen; if the device declares a valid-alt control, after setting the frequency the bitmap (with length byte) is read to exclude invalid candidates before trying the next one. On failure the driver returns to alt 0 and releases the interface. Buffers and ISO transfers are sized for the finally selected alt.
 

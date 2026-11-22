@@ -662,7 +662,7 @@ sequenceDiagram
 | `format/euacx_dop.c`、`format/euacx_native_dsd.c` | 2.0 改写（1.0 保留现有 `uac2_dop.c` / `uac2_native_dsd.c`，不接入流程） | DoP 和原生 DSD 打包 |
 | `drivers/euacx_drivers.c` | 通用匹配与验证 | 按 VID:PID 和固件版本匹配条目 |
 | `drivers/drv_generic.c` | 通用 UAC 驱动 | 未命中设备条目时使用 |
-| `quirks/quirk_table.c` | 可选设备注册表 | 登记同目录下的 CX31993 和 ES9318 适配 |
+| `quirks/quirk_table.c` | 可选设备注册表 | 登记同目录下的 CX31993、ES9318、CS43198、CS43131 和 ES9039Q2M 适配 |
 | `quirks/quirk_xmos.c` | 1.0 删除 | 2.0 按实际适配的 DAC 新建 `quirks/quirk_<name>.c` |
 | `uac2_host/`（整个目录） | 删除 | 上游 esp-uac2-host 副本，见第 6.1 节 |
 | `quirks/quirk_cmedia.c` | 删除 | 没有设备和需求 |

@@ -6,6 +6,20 @@ English | [中文](device-notes.zh.md)
 
 This file records only USB IDs, symptoms and conditions, sources, and this project's evidence; it does not record how external drivers implement anything. The protocol basis is USB-IF Audio 2.0 sections 4.9.2, 5.2.6.1.2, and A.17.11; the smallest-MPS behavior for the same format is also described in [Microsoft's USB Audio 2.0 documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/audio/usb-2-0-audio-drivers). UAC1 hardware records are listed here too. Driver entries are registered by actual USB ID.
 
+## Overview
+
+| USB ID | DAC | Class | P4 HS | S3 FS | Flags |
+|---|---|---|---|---|---|
+| `06cb:1594` | CX31993 | UAC2 | verified, PCM16/24/32 × 8 rates | verified, PCM16/24 × 6 rates | — |
+| `262a:0002` | ES9318 / SA9023 | UAC1 | (enumerates as `262a:0001`) | verified, PCM16/24 × 5 rates | `ALT_BEFORE_RATE` |
+| `262a:0001` | ES9318 / SA9023 (HS) | UAC2 | verified, PCM16/24/32 × 8 rates | — | — |
+| `2fc6:f0fc` | CS43198 | UAC2 | verified, PCM16/24/32 × 8 rates | **failed** (silent) | — |
+| `3302:98c2` | CS43131 | UAC2 | verified, PCM16/24/32 × 8 rates | verified, 44.1 kHz only | `FS_OUT_MPS`, `ALT_NO_READBACK` |
+| `2fc6:f800` | ES9039Q2M | UAC2 | verified, PCM16/24/32 × 8 rates | **failed** (silent) | — |
+| `2d99:a024`, `152a:85dd`, `20b1:3008` | candidates | — | reported only | reported only | not added |
+
+The 776-byte MPS devices (CS43198, CS43131, ES9039Q2M) need `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` on P4. On S3 their alts exceed the 600-byte periodic OUT FIFO; `FS_OUT_MPS` makes them claimable, but only the CS43131 produced sound.
+
 ## 06cb:1594 CX31993
 - Symptom: FS and HS differ in alts and host FIFO limits; volume uses the writable left/right channels, mute uses master.
 - Sources: [this project's acceptance record](../plan.zh.md) (Chinese), [real FS descriptor](../components/easy-esp-uacx/test/fixtures/cx31993_fs.h).
@@ -88,6 +102,6 @@ The CS43198 is **not supported on S3 FS**; the entry registers no FS table, so o
 
 ## Acceptance and admission
 
-CX31993, ES9318, CS43198, CS43131, and ES9039Q2M are registered as `verified`. CS43198 is the first new UAC2 DAC entry for L3, verified on P4 HS only (listening confirmed; hot-plug and 30-minute playback pending); its S3 FS adaptation failed, see above. CS43131 is verified on S3 FS at 44.1 kHz only and on P4 HS at eight rates (recorded output confirmed for both). ES9039Q2M is verified on P4 HS at eight rates (recorded output confirmed); its S3 FS adaptation failed. Before adding a new candidate, collect the actual VID:PID, descriptors, and a reproduction of the problem.
+The registered `verified` entries and their per-board status are listed in the overview above. Before adding a new candidate, collect the actual VID:PID, descriptors, and a reproduction of the problem.
 
-For each candidate, record in turn the board, full descriptors, bcdDevice, sample-rate/alt request order, control writes and readbacks, and listening/recording results; update the evidence level after the matrix and volume readback are complete. Public-report entries carry no hardware-tested capability table, and guesses stay in this file only.
+For each candidate, record in turn the board, full descriptors, bcdDevice, sample-rate/alt request order, control writes and readbacks, and listening/recording results (a microphone recording aligned to the matrix log catches garbled or silent output that `RESULT PASS` cannot); update the evidence level after the matrix and volume readback are complete. Public-report entries carry no hardware-tested capability table, and guesses stay in this file only.

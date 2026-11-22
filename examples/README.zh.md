@@ -65,15 +65,18 @@ python scripts/record_input.py --input 'Input 1/2' --seconds 105 --output tmp/p4
 
 `VERIFIED_RATE` 是登记能力表的候选，必须结合听音或录音检查和日志的实际 alt/subslot，不能直接把描述符能力写成已验证表。Matrix 配置关闭已验证过滤，Soak 配置开启过滤。CX31993 FS 表已登记本轮 PCM16/24 六档；HS 表登记 PCM16/24/32 各八档（8/16/32/44.1/48/96/192/384 kHz）。S3 PCM32 端点 MPS768 超出当前 FIFO600，正确地从能力中排除。
 
-ES9318 在 S3 FS 上的默认矩阵覆盖 PCM16/24 各五档（32、44.1、48、88.2、96 kHz），推送和拉取共 20 个用例。可在串口输出中确认 VID:PID 为 `262a:0002`、驱动为 `es9318`，并用上面的 `check_validation.py` 检查矩阵日志。硬件记录见 [ES9318 设备记录](../docs/device-notes.zh.md#262a0002-es9318--savitech-sa9023)。
+已登记专用驱动的矩阵覆盖（每档推送 + 拉取；用上面的 `check_validation.py` 检查日志，并在串口输出中确认 VID:PID 和驱动名）：
 
-ES9318 接到 P4 HS 口时以 `262a:0001` 枚举，矩阵覆盖 PCM16/24/32 各八档（44.1–384 kHz），推送和拉取共 48 个用例。
+| 声卡 | 板卡 / USB ID | 矩阵 | 说明 |
+|---|---|---|---|
+| ES9318 | S3 FS `262a:0002` | PCM16/24 × 32、44.1、48、88.2、96 kHz = 20 | UAC1；[记录](../docs/device-notes.zh.md#262a0002-es9318--savitech-sa9023) |
+| ES9318 | P4 HS `262a:0001` | PCM16/24/32 × 44.1–384 kHz = 48 | |
+| CS43198 | P4 HS `2fc6:f0fc` | PCM16/24/32 × 44.1–384 kHz = 48 | 需周期 OUT FIFO 偏置（`p4/sdkconfig.defaults` 已设置）；S3 FS 失败，不公布 PCM 能力（[记录](../docs/device-notes.zh.md#s3-fs-适配失败)） |
+| CS43131 | S3 FS `3302:98c2` | PCM16/24/32 × 44.1 kHz = 6 | 48–96 kHz 传输正常，但录音为乱码或静音（[记录](../docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)） |
+| CS43131 | P4 HS `3302:98c2` | PCM16/24/32 × 44.1–384 kHz = 48 | 需周期 OUT FIFO 偏置 |
+| ES9039Q2M | P4 HS `2fc6:f800` | PCM16/24/32 × 44.1–384 kHz = 48 | 需周期 OUT FIFO 偏置；S3 FS 失败，不公布 PCM 能力（[记录](../docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)） |
 
-CS43198 接到 P4 HS 口时以 `2fc6:f0fc` 枚举，矩阵覆盖 PCM16/24/32 各八档（44.1–384 kHz），推送和拉取共 48 个用例，需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`p4/sdkconfig.defaults` 已设置）。CS43198 的 S3 FS 适配失败：能枚举但不公布任何 PCM 能力，见 [CS43198 设备记录](../docs/device-notes.zh.md#s3-fs-适配失败)。
-
-CS43131 接到 S3 FS 时以 `3302:98c2` 枚举，矩阵覆盖 PCM16/24/32 的 44.1 kHz，推送和拉取共 6 个用例。48–96 kHz 传输同样通过，但录音显示输出为乱码或静音，因此 FS 只登记 44.1 kHz。接到 P4 HS 口时同样以 `3302:98c2` 枚举，矩阵覆盖 PCM16/24/32 各八档（44.1–384 kHz），推送和拉取共 48 个用例，需开启周期 OUT FIFO 偏置：[CS43131 设备记录](../docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)。
-
-ES9039Q2M 接到 P4 HS 口时以 `2fc6:f800` 枚举，矩阵覆盖 PCM16/24/32 各八档（44.1–384 kHz），推送和拉取共 48 个用例，需开启周期 OUT FIFO 偏置。其 S3 FS 适配失败（能枚举但不公布任何 PCM 能力）：[ES9039Q2M 设备记录](../docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)。
+`RESULT PASS` 不代表能听到声音。新条目在矩阵运行时还用麦克风录下 DAC 输出，按串口日志把录音切分到各个流，再与开播前的静音比较旋律电平、宽带噪声和音高。
 
 ## 配置
 

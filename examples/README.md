@@ -65,15 +65,18 @@ By default it uses the input interface's current sample rate (44.1 kHz for the l
 
 `VERIFIED_RATE` lines are candidates for the registered capability table and must be combined with listening or recording checks and the actual alt/subslot in the log; descriptor capabilities must not be written directly into a verified table. The Matrix config disables verified filtering; the Soak config enables it. The CX31993 FS table registers this round's six rates for PCM16/24; the HS table registers eight rates each for PCM16/24/32 (8/16/32/44.1/48/96/192/384 kHz). The S3 PCM32 endpoint's MPS 768 exceeds the current FIFO of 600 and is correctly excluded from capabilities.
 
-The default matrix for ES9318 on S3 FS covers five rates each for PCM16/24 (32, 44.1, 48, 88.2, 96 kHz), 20 push and pull cases in total. Confirm in the serial output that VID:PID is `262a:0002` and the driver is `es9318`, and check the matrix log with `check_validation.py` above. Hardware records: [ES9318 device notes](../docs/device-notes.md#262a0002-es9318--savitech-sa9023).
+Matrix coverage of the registered dedicated drivers (push + pull per rate; check each log with `check_validation.py` above and confirm the VID:PID and driver name in the serial output):
 
-On the P4 HS port, ES9318 enumerates as `262a:0001`; the matrix covers eight rates each for PCM16/24/32 (44.1–384 kHz), 48 push and pull cases in total.
+| DAC | Board / USB ID | Matrix | Notes |
+|---|---|---|---|
+| ES9318 | S3 FS `262a:0002` | PCM16/24 × 32, 44.1, 48, 88.2, 96 kHz = 20 | UAC1; [notes](../docs/device-notes.md#262a0002-es9318--savitech-sa9023) |
+| ES9318 | P4 HS `262a:0001` | PCM16/24/32 × 44.1–384 kHz = 48 | |
+| CS43198 | P4 HS `2fc6:f0fc` | PCM16/24/32 × 44.1–384 kHz = 48 | Needs the periodic-OUT FIFO bias (set in `p4/sdkconfig.defaults`); S3 FS failed, no PCM capability ([notes](../docs/device-notes.md#s3-fs-adaptation-failed)) |
+| CS43131 | S3 FS `3302:98c2` | PCM16/24/32 × 44.1 kHz = 6 | 48–96 kHz transfer fine but the recorded output is garbled or muted ([notes](../docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio)) |
+| CS43131 | P4 HS `3302:98c2` | PCM16/24/32 × 44.1–384 kHz = 48 | Needs the periodic-OUT FIFO bias |
+| ES9039Q2M | P4 HS `2fc6:f800` | PCM16/24/32 × 44.1–384 kHz = 48 | Needs the periodic-OUT FIFO bias; S3 FS failed, no PCM capability ([notes](../docs/device-notes.md#2fc6f800-es9039q2m-sxw-mdl7601-intclk_a2)) |
 
-On the P4 HS port, CS43198 enumerates as `2fc6:f0fc`; the matrix covers eight rates each for PCM16/24/32 (44.1–384 kHz), 48 push and pull cases in total. It requires `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (set in `p4/sdkconfig.defaults`). On S3 FS the CS43198 adaptation failed: it enumerates but publishes no PCM capability, see [CS43198 device notes](../docs/device-notes.md#s3-fs-adaptation-failed).
-
-On S3 FS, CS43131 enumerates as `3302:98c2`; the matrix covers 44.1 kHz for PCM16/24/32, 6 push and pull cases in total. Transport also passes at 48–96 kHz, but the recorded output there is garbled or muted, which is why only 44.1 kHz is registered for FS. On the P4 HS port the same `3302:98c2` covers eight rates each for PCM16/24/32 (44.1–384 kHz), 48 push and pull cases, with the periodic-OUT FIFO bias: [CS43131 device notes](../docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio).
-
-On the P4 HS port, ES9039Q2M enumerates as `2fc6:f800`; the matrix covers eight rates each for PCM16/24/32 (44.1–384 kHz), 48 push and pull cases, with the periodic-OUT FIFO bias. Its S3 FS adaptation failed (it enumerates but publishes no PCM capability): [ES9039Q2M device notes](../docs/device-notes.md#2fc6f800-es9039q2m-sxw-mdl7601-intclk_a2).
+`RESULT PASS` does not prove audibility. New entries were also checked by recording the DAC output with a microphone while the matrix ran, splitting the recording per stream by the serial log, and comparing tone level, broadband noise and melody pitch against the silence before playback.
 
 ## Configuration
 

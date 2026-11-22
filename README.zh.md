@@ -41,10 +41,9 @@
 
 说明：
 
-- ES9318 在 P4 HS 下静音 GET 恒为 0，因此关闭静音读回；音量读回正常。
-- CS43198 在两种速度下都声明 776 字节 ISO OUT MPS。**S3 FS 适配失败**：各 alt 都超过 S3 600 字节 FIFO，限制 MPS 或照搬 Windows 开流顺序的实验能正常传输但始终无声，因此 S3 上不公布任何 PCM 能力（[详情](docs/device-notes.zh.md#s3-fs-适配失败)）；P4 需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`examples/p4/sdkconfig.defaults` 已设置）。
-- CS43131 同样声明 776 字节 ISO OUT MPS，在 S3 FS 下把主机管道 MPS 限制为 582 字节。其 FS 固件只能正确播放 44.1 kHz（时钟接受的其他采样率输出为乱码或静音），GET_INTERFACE 返回错误的 alt，静音读回失败，因此 FS 只登记 44.1 kHz，不提供静音。P4 HS 下八档采样率均可正常播放，与 CS43198 一样需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（[详情](docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)）。
-- ES9039Q2M 同样声明 776 字节 MPS，需要相同的 P4 FIFO 偏置。其 Feature Unit 在主通道和左右通道上都有音量，两者级联，因此库把音量写入主通道、左右通道保持 0 dB。**S3 FS 适配失败**（限制 MPS 后传输正常但无声，与 CS43198 相同），因此 S3 上不公布任何 PCM 能力（[详情](docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)）。
+- **P4 HS FIFO：** CS43198、CS43131 和 ES9039Q2M 声明 776 字节 ISO OUT MPS，超过 IDF 默认分配下 512 字节的周期 TX FIFO。P4 需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`examples/p4/sdkconfig.defaults` 已设置）。
+- **S3 FS：** 同样的 776 字节超过 S3 600 字节周期 OUT FIFO。CS43131 把主机管道 MPS 限制为 582，FS 下只能正确播放 44.1 kHz；其时钟接受的其他采样率输出为乱码或静音（[详情](docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)）。CS43198 和 ES9039Q2M 在同样的限制下传输正常但无声，**S3 FS 适配失败**，S3 上不公布任何 PCM 能力（[CS43198](docs/device-notes.zh.md#s3-fs-适配失败)、[ES9039Q2M](docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)）。
+- **控制：** ES9318 在 P4 HS 下和 CS43131 的静音读回不可信，因此不提供静音，音量正常。CS43131 对 GET_INTERFACE 返回错误的 alt，因此跳过 alt 读回。主通道和左右通道音量同时可写时（ES9039Q2M），UAC2 会级联两者，库把音量写入主通道、左右通道保持 0 dB。
 - 其他标准 UAC2 DAC 回退到 generic 驱动，可能可用但未经验证。公开报告中的候选设备（漫步者 MF200、SMSL、iFi iDSD）尚未加入驱动条目，见 [设备记录](docs/device-notes.zh.md)。
 - 如需适配新声卡，请先收集 VID:PID、完整描述符和问题复现，再按设备记录中的准入步骤提交。
 
@@ -122,6 +121,7 @@ ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，�
 # 主机测试不需要板卡；依赖 MinGW GCC 和 ESP-IDF 自带 Unity
 ./scripts/test_host.ps1
 ./scripts/test_host.ps1 -WithoutCx31993
+# 另有 -WithoutEs9318、-WithoutCs43198、-WithoutCs43131、-WithoutEs9039、-WithoutReported
 ```
 
 | 配置 | 默认 | 用途 |
