@@ -29,6 +29,9 @@ typedef struct euacx_dev_caps {
 } euacx_dev_caps_t;
 
 esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *caps);
+/* Lower every ISO OUT endpoint MPS above cap, in the configuration descriptor and in caps.
+ * Host-side only: the device never sees it, and packets are sized from caps. Returns endpoints changed. */
+unsigned euacx_cap_out_mps(uint8_t *config, size_t size, euacx_dev_caps_t *caps, uint16_t cap);
 const euacx_feature_t *euacx_feature(const euacx_dev_caps_t *caps, uint8_t terminal);
 uint32_t euacx_service_ticks(const euacx_alt_t *alt);
 /* IDF schedules an ISO transfer in a 64-entry (micro)frame list, 3 reserved as margin:

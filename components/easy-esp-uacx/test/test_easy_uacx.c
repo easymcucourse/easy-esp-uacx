@@ -259,6 +259,48 @@ TEST_CASE("drivers: CS43198 verified HS driver table", "[euacx][drivers]")
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x2fc6, 0xf0fd, 0));
 }
 
+TEST_CASE("drivers: CS43131 verified FS driver table", "[euacx][drivers]")
+{
+    const euacx_driver_t *d = euacx_driver_find(0x3302, 0x98c2, 0);
+#ifdef CONFIG_EUACX_DRV_CS43131
+    TEST_ASSERT_EQUAL_STRING("cs43131", d->name);
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
+    TEST_ASSERT_EQUAL_UINT32(EUACX_DRV_FS_OUT_MPS | EUACX_DRV_ALT_NO_READBACK, d->flags);
+    TEST_ASSERT_EQUAL_UINT16(582, d->params->fs_out_mps);
+    TEST_ASSERT_EQUAL_UINT8(3, d->verified->num_fs);
+    TEST_ASSERT_EQUAL_UINT8(0, d->verified->num_hs);
+    TEST_ASSERT_EQUAL_INT16(-2688, d->verified->volume_db256);
+    for (unsigned i = 0; i < 3; ++i) {
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, d->verified->fs[i].bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, d->verified->fs[i].subslot);
+        /* FS firmware only plays 44.1 kHz although its clock accepts more. */
+        TEST_ASSERT_EQUAL_UINT8(1, d->verified->fs[i].rates.num_rates);
+        TEST_ASSERT_EQUAL_UINT32(44100, d->verified->fs[i].rates.rates[0]);
+    }
+#else
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, d);
+#endif
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x3302, 0x98c3, 0));
+}
+
+TEST_CASE("drivers: FS OUT MPS cap requires an in-range parameter", "[euacx][drivers]")
+{
+    euacx_driver_params_t params = { .fs_out_mps = 582 };
+    euacx_driver_t d = { .name = "t", .vid = 1, .pid = 2, .flags = EUACX_DRV_FS_OUT_MPS, .params = &params };
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(&d));
+    params.fs_out_mps = 0;
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, euacx_driver_validate(&d));
+    params.fs_out_mps = 1024;
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, euacx_driver_validate(&d));
+    d.params = NULL;
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, euacx_driver_validate(&d));
+    /* ALT_NO_READBACK takes no parameter; bits above it stay rejected. */
+    d.flags = EUACX_DRV_ALT_NO_READBACK;
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(&d));
+    d.flags = EUACX_DRV_ALT_NO_READBACK << 1;
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, euacx_driver_validate(&d));
+}
+
 TEST_CASE("drivers: verified tables reject invalid bit depth and rate order", "[euacx][drivers]")
 {
     euacx_verified_pcm_t pcm = { .bits = 24, .subslot = 3,

@@ -96,6 +96,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | `EUACX_DRV_CX31993` | y | 专用驱动 |
 | `EUACX_DRV_ES9318` | y | ES9318 / SA9023 专用驱动及 S3 FS、P4 HS 已验证能力表 |
 | `EUACX_DRV_CS43198` | y | CS43198（`2fc6:f0fc`）专用驱动及 P4 HS 已验证能力表（S3 FS 下无声，见设备记录）；P4 需开启 `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
+| `EUACX_DRV_CS43131` | y | CS43131（`3302:98c2`）专用驱动及 S3 FS 已验证能力表（仅 44.1 kHz）；FS 下 ISO OUT MPS 限制为 582，跳过 GET_INTERFACE 读回 |
 | `EUACX_DRV_REPORTED` | y | 允许公开报告支持的条目；当前尚无符合全部录入条件的新条目 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 使用已验证能力表（有表时） |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限；按管线容量和 2 的幂扩容 |

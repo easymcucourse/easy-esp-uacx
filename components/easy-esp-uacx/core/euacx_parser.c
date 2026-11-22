@@ -125,6 +125,31 @@ esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *d)
     return d->num_alts && d->first_clock ? ESP_OK : ESP_ERR_NOT_SUPPORTED;
 }
 
+unsigned euacx_cap_out_mps(uint8_t *data, size_t size, euacx_dev_caps_t *d, uint16_t cap)
+{
+    if (!data || !d || size < 9 || data[1] != 2 || le16(data + 2) > size || !cap || cap > 0x7ff) return 0;
+    size = le16(data + 2);
+    unsigned changed = 0;
+    uint8_t interface = 0, alt = 0;
+    for (size_t off = 0; off + 2 <= size;) {
+        uint8_t *p = data + off;
+        if (p[0] < 2 || p[0] > size - off) break;
+        if (p[1] == 4 && p[0] >= 9) { interface = p[2]; alt = p[3]; }
+        /* ISO OUT without additional transactions per microframe. */
+        if (p[1] == 5 && p[0] >= 7 && !(p[2] & 0x80) && (p[3] & 3) == 1 && !(p[5] & 0x18) &&
+            le16(p + 4) > cap) {
+            p[4] = cap & 0xff; p[5] = (uint8_t)(cap >> 8);
+            ++changed;
+            for (unsigned i = 0; i < d->num_alts; ++i) {
+                euacx_alt_t *a = &d->alts[i];
+                if (a->interface == interface && a->alt == alt && a->ep == p[2] && a->mps > cap) a->mps = cap;
+            }
+        }
+        off += p[0];
+    }
+    return changed;
+}
+
 const euacx_feature_t *euacx_feature(const euacx_dev_caps_t *d, uint8_t terminal)
 {
     /* Follow output terminals back to the streaming input terminal. */

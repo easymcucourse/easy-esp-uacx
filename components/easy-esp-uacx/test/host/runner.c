@@ -8,7 +8,7 @@
 #include <stddef.h>
 #include "unity_test_runner.h"
 
-static struct { UnityTestFunction function; const char *name; int line; } tests[64];
+static struct { UnityTestFunction function; const char *name; int line; } tests[128];
 static size_t num_tests, allocated;
 /* max_align_t preserves malloc's alignment after our accounting prefix. */
 typedef union { max_align_t alignment; size_t size; } allocation_t;

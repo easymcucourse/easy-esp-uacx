@@ -14,7 +14,7 @@ static struct {
     int16_t volume[3], min, max, res;
     bool mute[3], stuck_volume, stuck_mute, fail_get;
     uint16_t ranges;
-    uint8_t alt, valid[32], bitmap_size;
+    uint8_t alt, wrong_alt, valid[32], bitmap_size;
     uint32_t rate, returned_rate;
     unsigned fail_at, count, claims, releases;
     struct { uint8_t type, req; uint16_t val, index, size; uint32_t us; } events[512];
@@ -59,7 +59,7 @@ esp_err_t euacx_control_transfer(euacx_port_t *p, uint8_t type, uint8_t req,
     if (fake.fail_at && fake.count == fake.fail_at) return ESP_FAIL;
     uint8_t *bytes = data;
     if (type == 1 && req == 0x0b) { fake.alt = val; return ESP_OK; }
-    if (type == 0x81 && req == 0x0a) { bytes[0] = fake.alt; return ESP_OK; }
+    if (type == 0x81 && req == 0x0a) { bytes[0] = fake.wrong_alt ? fake.wrong_alt : fake.alt; return ESP_OK; }
     if (index == dev.caps.alts[0].interface && val == 0x0200 && type == 0xa1) {
         bytes[0] = fake.bitmap_size;
         if (size > 1) memcpy(bytes + 1, fake.valid, size - 1);
@@ -213,6 +213,18 @@ TEST_CASE("behavior: default and alt-first request ordering and rate readback ex
     init(0); fake.returned_rate = 123;
     TEST_ASSERT_EQUAL(ESP_ERR_NOT_SUPPORTED, euacx_prepare_stream(&port, &cfg, &selected));
     TEST_ASSERT_EQUAL(-1, dev.claimed); TEST_ASSERT_EQUAL(0, fake.alt);
+}
+TEST_CASE("behavior: wrong GET_INTERFACE fails open unless alt readback is skipped", "[euacx][stream]")
+{
+    /* CS43131 3302:98c2 at FS answers 35 whatever alt was set. */
+    euacx_alt_t selected;
+    init(0); fake.wrong_alt = 35;
+    TEST_ASSERT_EQUAL(ESP_ERR_INVALID_RESPONSE, euacx_prepare_stream(&port, &cfg, &selected));
+    TEST_ASSERT_EQUAL(-1, dev.claimed);
+    init(EUACX_DRV_ALT_NO_READBACK); fake.wrong_alt = 35;
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_prepare_stream(&port, &cfg, &selected));
+    TEST_ASSERT_EQUAL(0, requests(0x81, 0x0a, 0));
+    TEST_ASSERT_EQUAL(selected.alt, fake.alt);
 }
 TEST_CASE("behavior: delays follow class requests and streaming SET_INTERFACE", "[euacx][stream]")
 {

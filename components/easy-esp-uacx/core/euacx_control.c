@@ -19,6 +19,7 @@ esp_err_t euacx_set_interface(euacx_port_t *p, uint8_t interface, uint8_t alt)
     esp_err_t e = euacx_control(p, 1, 0x0b, alt, interface, NULL, 0);
     if (e == ESP_OK && alt && (flags(p) & EUACX_DRV_IFACE_DELAY))
         euacx_control_delay((uint32_t)p->dev->driver->params->iface_delay_ms * 1000);
+    if (flags(p) & EUACX_DRV_ALT_NO_READBACK) return e;
     uint8_t actual = 0xff;
     if (e == ESP_OK) e = euacx_control(p, 0x81, 0x0a, 0, interface, &actual, 1);
     return e == ESP_OK && actual != alt ? ESP_ERR_INVALID_RESPONSE : e;

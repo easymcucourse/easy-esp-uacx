@@ -16,11 +16,16 @@ enum {
     EUACX_DRV_RATE_NO_READBACK = 1u << 5,
     EUACX_DRV_ALT_BEFORE_RATE = 1u << 6,
     EUACX_DRV_IFACE_DELAY = 1u << 7,
+    /* At FS, cap the host pipe MPS of over-declared ISO OUT endpoints at params->fs_out_mps. */
+    EUACX_DRV_FS_OUT_MPS = 1u << 8,
+    /* GET_INTERFACE returns a wrong alt; trust a successful SET_INTERFACE. */
+    EUACX_DRV_ALT_NO_READBACK = 1u << 9,
 };
 typedef struct {
     uint16_t ctl_delay_us, iface_delay_ms;
     int16_t vol_min, vol_max, vol_res;
     uint16_t bcd_min, bcd_max; /* 0/0 accepts any firmware revision */
+    uint16_t fs_out_mps;
 } euacx_driver_params_t;
 
 typedef struct {

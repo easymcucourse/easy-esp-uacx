@@ -71,6 +71,8 @@ ES9318 接到 P4 HS 口时以 `262a:0001` 枚举，矩阵覆盖 PCM16/24/32 各�
 
 CS43198 接到 P4 HS 口时以 `2fc6:f0fc` 枚举，矩阵覆盖 PCM16/24/32 各八档（44.1–384 kHz），推送和拉取共 48 个用例，需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`p4/sdkconfig.defaults` 已设置）。CS43198 的 S3 FS 适配失败：能枚举但不公布任何 PCM 能力，见 [CS43198 设备记录](../docs/device-notes.zh.md#s3-fs-适配失败)。
 
+CS43131 接到 S3 FS 时以 `3302:98c2` 枚举，矩阵覆盖 PCM16/24/32 的 44.1 kHz，推送和拉取共 6 个用例。48–96 kHz 传输同样通过，但录音显示输出为乱码或静音，因此只登记 44.1 kHz：[CS43131 设备记录](../docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)。
+
 ## 配置
 
 | 配置 | 默认 / 用途 |

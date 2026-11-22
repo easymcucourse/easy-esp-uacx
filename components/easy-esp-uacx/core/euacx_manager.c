@@ -68,6 +68,11 @@ static void attach(euacx_context_t *c, uint8_t addr)
     if (d->caps.clock_fallback) ESP_LOGW("euacx", "clock selector/multiplier or missing link: using first clock source");
     if (d->driver->attach) e = d->driver->attach(d, &d->driver_ctx);
     if (e == ESP_OK && d->driver->fixup_caps) e = d->driver->fixup_caps(d, d->driver_ctx, &d->caps);
+    /* The cached descriptor is host-owned heap; claim builds pipes from it. */
+    if (e == ESP_OK && u.speed == USB_SPEED_FULL && (d->driver->flags & EUACX_DRV_FS_OUT_MPS)) {
+        unsigned n = euacx_cap_out_mps((uint8_t *)config, config->wTotalLength, &d->caps, d->driver->params->fs_out_mps);
+        ESP_LOGI("euacx", "FS ISO OUT MPS capped at %u on %u endpoints", d->driver->params->fs_out_mps, n);
+    }
     if (e == ESP_OK) euacx_probe_rates(p);
     /* Claim creates host pipes without changing the device's alternate setting.
      * Probe actual controller/FIFO limits before advertising any capability;

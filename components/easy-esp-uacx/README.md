@@ -96,6 +96,7 @@ The CX31993 driver matches only `06cb:1594`, with an initial volume of −10.5 d
 | `EUACX_DRV_CX31993` | y | Dedicated driver |
 | `EUACX_DRV_ES9318` | y | ES9318 / SA9023 driver with S3 FS and P4 HS verified capability tables |
 | `EUACX_DRV_CS43198` | y | CS43198 (`2fc6:f0fc`) driver with P4 HS verified capability table (silent on S3 FS, see device notes); P4 needs `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
+| `EUACX_DRV_CS43131` | y | CS43131 (`3302:98c2`) driver with S3 FS verified table (44.1 kHz only); caps the FS ISO OUT MPS at 582 and skips GET_INTERFACE readback |
 | `EUACX_DRV_REPORTED` | y | Allow entries backed by public reports; no new entry currently meets all admission criteria |
 | `EUACX_USE_VERIFIED_CAPS` | y | Use verified capability tables (when present) |
 | `EUACX_BUFFER_MS` | 40 | Minimum buffer duration; grown to pipeline capacity and a power of two |

@@ -47,7 +47,7 @@ esp_err_t euacx_driver_validate(const euacx_driver_t *driver)
     if (!driver || !driver->name || !driver->name[0]) return ESP_ERR_INVALID_ARG;
     uint32_t flags = driver->flags;
     const euacx_driver_params_t *p = driver->params;
-    if (flags & ~0xffu) return ESP_ERR_INVALID_ARG;
+    if (flags & ~0x3ffu) return ESP_ERR_INVALID_ARG;
     /* Control/stream exceptions must name an exact product. */
     if (flags && (!driver->vid || !driver->pid)) return ESP_ERR_INVALID_ARG;
     if (p && p->bcd_min > p->bcd_max) return ESP_ERR_INVALID_ARG;
@@ -56,6 +56,7 @@ esp_err_t euacx_driver_validate(const euacx_driver_t *driver)
     if ((flags & EUACX_DRV_CTL_DELAY) && (!p || !p->ctl_delay_us || p->ctl_delay_us > 20000)) return ESP_ERR_INVALID_ARG;
     if ((flags & EUACX_DRV_IFACE_DELAY) && (!p || !p->iface_delay_ms || p->iface_delay_ms > 200)) return ESP_ERR_INVALID_ARG;
     if ((flags & EUACX_DRV_VOL_MIN_IS_MUTE) && (flags & EUACX_DRV_NO_HW_VOLUME)) return ESP_ERR_INVALID_ARG;
+    if ((flags & EUACX_DRV_FS_OUT_MPS) && (!p || p->fs_out_mps < 8 || p->fs_out_mps > 1023)) return ESP_ERR_INVALID_ARG;
     const euacx_verified_caps_t *v = driver->verified;
     if (v && (!valid_pcm(v->fs, v->num_fs) || !valid_pcm(v->hs, v->num_hs))) return ESP_ERR_INVALID_ARG;
     return ESP_OK;
