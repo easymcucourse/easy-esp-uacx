@@ -90,8 +90,12 @@ esp_err_t euacx_stream_start(euacx_port_t *p, euacx_request_t *r)
     if (e == ESP_OK) e = euacx_prepare_stream(p, &r->cfg, &s->alt);
     alt = &s->alt;
     if (e == ESP_OK) {
+        s->packets = euacx_iso_packets(euacx_service_ticks(alt), p->info.speed == EUACX_SPEED_HS ? 32 : 8);
+        s->feedback_packets = alt->feedback_ep ? euacx_iso_packets(euacx_feedback_ticks(alt), 8) : 0;
+        if (!s->packets || (alt->feedback_ep && !s->feedback_packets)) e = ESP_ERR_NOT_SUPPORTED;
+    }
+    if (e == ESP_OK) {
         uint64_t bytes = (uint64_t)r->cfg.sample_rate * 2 * alt->subslot * CONFIG_EUACX_BUFFER_MS / 1000;
-        s->packets = p->info.speed == EUACX_SPEED_HS ? 32 : 8;
         uint64_t max_frames = ((uint64_t)r->cfg.sample_rate * euacx_service_ticks(alt) + base - 1) / base;
         if (alt->feedback_ep) ++max_frames;
         uint64_t pipeline = max_frames * 2 * alt->subslot * s->packets * CONFIG_EUACX_NUM_TRANSFERS;
@@ -104,7 +108,7 @@ esp_err_t euacx_stream_start(euacx_port_t *p, euacx_request_t *r)
     for (unsigned i = 0; e == ESP_OK && i < CONFIG_EUACX_NUM_TRANSFERS; ++i)
         e = usb_host_transfer_alloc((size_t)alt->mps * s->packets, s->packets, &s->transfers[i]);
     if (e == ESP_OK && alt->feedback_ep)
-        e = usb_host_transfer_alloc(alt->feedback_mps * 8u, 8, &s->feedback);
+        e = usb_host_transfer_alloc((size_t)alt->feedback_mps * s->feedback_packets, s->feedback_packets, &s->feedback);
     bool driver_started = false;
     if (e == ESP_OK && p->dev->driver->stream_start) {
         e = p->dev->driver->stream_start(p->dev, p->dev->driver_ctx, s);

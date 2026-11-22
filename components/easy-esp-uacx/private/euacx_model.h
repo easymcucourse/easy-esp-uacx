@@ -31,6 +31,11 @@ typedef struct euacx_dev_caps {
 esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *caps);
 const euacx_feature_t *euacx_feature(const euacx_dev_caps_t *caps, uint8_t terminal);
 uint32_t euacx_service_ticks(const euacx_alt_t *alt);
+/* IDF schedules an ISO transfer in a 64-entry (micro)frame list, 3 reserved as margin:
+ * packets * interval must stay within 61. Returns 0 when the interval cannot be scheduled. */
+#define EUACX_ISO_SCHEDULE_SLOTS 61u
+unsigned euacx_iso_packets(uint32_t ticks, unsigned want);
+uint32_t euacx_feedback_ticks(const euacx_alt_t *alt);
 bool euacx_alt_fits(const euacx_alt_t *alt, euacx_speed_t speed, uint32_t rate, uint8_t bits);
 const euacx_alt_t *euacx_select(const euacx_dev_caps_t *caps, euacx_speed_t speed,
                                const euacx_stream_config_t *request);

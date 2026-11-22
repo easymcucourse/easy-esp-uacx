@@ -73,7 +73,7 @@ struct euacx_stream_state {
     uint64_t phase;
     uint8_t partial[8], partial_size;
     usb_transfer_t *transfers[CONFIG_EUACX_NUM_TRANSFERS], *feedback;
-    unsigned packets, consecutive_errors;
+    unsigned packets, feedback_packets, consecutive_errors;
     bool closing, restore_mute, restore_mute_valid;
     euacx_stop_reason_t reason;
     esp_err_t error;

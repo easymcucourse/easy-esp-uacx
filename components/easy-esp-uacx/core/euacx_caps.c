@@ -4,10 +4,21 @@
 #include "euacx_model.h"
 
 uint32_t euacx_service_ticks(const euacx_alt_t *a) { return a->interval && a->interval <= 16 ? 1u << (a->interval - 1) : 0; }
+uint32_t euacx_feedback_ticks(const euacx_alt_t *a)
+{
+    return a->feedback_interval && a->feedback_interval <= 16 ? 1u << (a->feedback_interval - 1) : 0;
+}
+unsigned euacx_iso_packets(uint32_t ticks, unsigned want)
+{
+    if (!ticks || ticks > EUACX_ISO_SCHEDULE_SLOTS) return 0;
+    unsigned limit = EUACX_ISO_SCHEDULE_SLOTS / ticks;
+    return want < limit ? want : limit;
+}
 bool euacx_alt_fits(const euacx_alt_t *a, euacx_speed_t speed, uint32_t hz, uint8_t bits)
 {
     uint32_t period = euacx_service_ticks(a), base = speed == EUACX_SPEED_HS ? 8000 : 1000;
-    if (!period || bits > a->bits || a->subslot * 8 < a->bits || !hz ||
+    if (!euacx_iso_packets(period, 1) || (a->feedback_ep && !euacx_iso_packets(euacx_feedback_ticks(a), 1)) ||
+        bits > a->bits || a->subslot * 8 < a->bits || !hz ||
         (a->feedback_ep && (!a->feedback_interval || a->feedback_interval > 16 ||
                            a->feedback_mps < 3 || a->feedback_mps > 4 ||
                            (speed == EUACX_SPEED_HS && a->feedback_mps != 4)))) return false;
