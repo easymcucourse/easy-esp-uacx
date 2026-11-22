@@ -8,6 +8,7 @@
 #include "fixtures/cx31993_fs.h"
 #include "fixtures/es9318_fs.h"
 #include "fixtures/es9318_hs.h"
+#include "fixtures/cs43198_hs.h"
 
 static euacx_dev_caps_t model(void)
 {
@@ -86,6 +87,31 @@ TEST_CASE("parser: real ES9318 HS descriptor is UAC2 with 8-microframe feedback"
         a->rates = (euacx_rate_list_t){.num_rates = 1, .rates = {384000}};
         TEST_ASSERT_TRUE(euacx_alt_fits(a, EUACX_SPEED_HS, 384000, a->bits));
     }
+}
+TEST_CASE("parser: real CS43198 HS descriptor declares 776-byte MPS on every PCM alt", "[euacx][parser]")
+{
+    euacx_dev_caps_t d;
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_parse(cs43198_hs_config, sizeof(cs43198_hs_config), &d));
+    TEST_ASSERT_FALSE(d.is_uac1);
+    TEST_ASSERT_TRUE(d.num_alts >= 3);
+    for (unsigned i = 0; i < 3; ++i) {
+        euacx_alt_t *a = &d.alts[i];
+        TEST_ASSERT_EQUAL_UINT8(1, a->interface);
+        TEST_ASSERT_EQUAL_UINT8(i + 1, a->alt);
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, a->bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, a->subslot);
+        /* Above the 512-byte default periodic TX FIFO; needs the PTX bias on P4. */
+        TEST_ASSERT_EQUAL_UINT16(776, a->mps);
+        TEST_ASSERT_EQUAL_UINT8(0x81, a->feedback_ep);
+        TEST_ASSERT_EQUAL_UINT32(8, euacx_feedback_ticks(a));
+        a->rates = (euacx_rate_list_t){.num_rates = 1, .rates = {384000}};
+        TEST_ASSERT_TRUE(euacx_alt_fits(a, EUACX_SPEED_HS, 384000, a->bits));
+    }
+    const euacx_feature_t *f = euacx_feature(&d, 1);
+    TEST_ASSERT_NOT_NULL(f);
+    TEST_ASSERT_EQUAL_UINT8(3, f->id);
+    TEST_ASSERT_EQUAL_UINT32(1, f->mute_write);
+    TEST_ASSERT_EQUAL_UINT32(6, f->volume_write);
 }
 TEST_CASE("ISO scheduling: packets times interval stay within the IDF transfer list", "[euacx][iso]")
 {

@@ -1,8 +1,10 @@
-# easy UACX 组件 API
+# easy UACX Component API
 
-当前为 **1.0.0-rc.1**。PCM 运行时已实现；正式版本的实机验收进度见 [根 README](../../README.md) 和 [示例说明](../../examples/README.md)。唯一公开头文件是 `easy_uacx.h`，应用不需要包含 USB、FreeRTOS 或驱动表头文件。
+English | [中文](README.zh.md)
 
-## 初始化、端口与能力
+Current version: **1.0.0-rc.1**. The PCM runtime is implemented; hardware acceptance progress for the official release is tracked in the [root README](../../README.md) and the [examples guide](../../examples/README.md). The only public header is `easy_uacx.h`; applications do not need to include USB, FreeRTOS, or driver-table headers.
+
+## Initialization, ports, and capabilities
 
 ```c
 euacx_config_t config = EUACX_CONFIG_DEFAULT();
@@ -12,25 +14,25 @@ config.cb.on_stream_stopped = stopped;
 ESP_ERROR_CHECK(euacx_init(&config));
 ```
 
-`euacx_init` 创建 manager、USB 事件 pump、状态回调任务，并默认安装 USB Host 库及库事件任务。重复初始化返回 `ESP_ERR_INVALID_STATE`。任务优先级必须低于 pump，核编号是 `-1` 或有效 CPU 编号；供数任务优先级也必须低于 pump。
+`euacx_init` creates the manager, the USB event pump, and the status-callback task, and by default installs the USB Host library and its library-event task. Calling it again returns `ESP_ERR_INVALID_STATE`. Task priorities must be lower than the pump's; core IDs must be `-1` or a valid CPU number. The feed task priority must also be lower than the pump's.
 
-当前 `euacx_port_count()` 返回 1，`euacx_get_port(0)` 返回默认根端口句柄，越界返回 NULL。句柄在 init/deinit 之间保持有效，拔插不会更换句柄；deinit 后不得再保存使用旧句柄。S3 使用默认 FS Host，P4 使用默认 HS Host，第二个 P4 FS 根端口未实现。
+`euacx_port_count()` currently returns 1. `euacx_get_port(0)` returns the default root-port handle; out-of-range indices return NULL. Handles stay valid between init and deinit and do not change across unplug/replug; do not keep using an old handle after deinit. S3 uses the default FS host and P4 the default HS host; the second P4 FS root port is not implemented.
 
-`euacx_get_info` 复制能力快照，只在 CONNECTED/STREAMING 状态成功。每次枚举增加 `conn_id`，应用处理延迟消息时应检查该值。`pcm[0/1/2]` 是 **16/24/32 位输入**各自的升序速率列表，转换后的设备容器可能更宽。默认已验证模式使用驱动表与描述符/带宽的交集；未登记专用驱动的设备使用 generic 描述符能力。UAC2 的采样率 GET RANGE 不可用时公布标准候选速率，开流通过 SET/GET 确认。UAC1 从格式描述符读取离散速率，开流先启用 alt，再对播放端点发送 3 字节 `SET_CUR`，以请求结果判断是否成功。
+`euacx_get_info` copies a capability snapshot and succeeds only in the CONNECTED/STREAMING states. Each enumeration increments `conn_id`; applications handling delayed messages should check it. `pcm[0/1/2]` are ascending rate lists for **16/24/32-bit input** respectively; the converted device container may be wider. The default verified mode uses the intersection of the driver table and descriptor/bandwidth limits; devices without a dedicated driver use the generic descriptor capabilities. When UAC2 sample-rate GET RANGE is unavailable, standard candidate rates are published and confirmed by SET/GET at stream open. UAC1 reads discrete rates from the format descriptor; stream open first enables the alt, then sends a 3-byte `SET_CUR` to the playback endpoint, and judges success by the request result.
 
-## PCM 数据与播放
+## PCM data and playback
 
-| 输入 | 立体声帧大小 | 布局 |
+| Input | Stereo frame size | Layout |
 |---|---|---|
-| 16 位 | 4 字节 | L16、R16，小端有符号 |
-| 24 位 | 6 字节 | packed L24、R24，小端有符号 |
-| 32 位 | 8 字节 | L32、R32，小端有符号 |
+| 16-bit | 4 bytes | L16, R16, little-endian signed |
+| 24-bit | 6 bytes | packed L24, R24, little-endian signed |
+| 32-bit | 8 bytes | L32, R32, little-endian signed |
 
-驱动选择能容纳输入位深的最窄设备格式，向更宽容器转换时高位对齐、低位补零，不降位深、不重采样。24 位输入映射到 4 字节容器时最低字节为零。已验证模式开流会保留表中登记的 subslot，避免能力查询通过后选择另一个未经验证的容器。
+The driver picks the narrowest device format that can hold the input bit depth. Conversion to a wider container is MSB-aligned with zero-filled low bits; it never reduces bit depth or resamples. 24-bit input mapped into a 4-byte container has a zero lowest byte. In verified mode, stream open keeps the subslot registered in the table, so a capability check that passes cannot pick a different, unverified container.
 
-开流期间硬件静音保护时钟/alt 切换，先提交静音 ISO 管线，再恢复应用原有静音状态并消费 PCM；close 切回 alt0 时也保护静音。枚举时临时 claim/release 各 alt，检测实际控制器/FIFO 限制，不能只用 USB 总线理论带宽筛选。
+During stream open, hardware mute protects the clock/alt switch: the silent ISO pipeline is submitted first, then the application's previous mute state is restored and PCM consumption starts. Mute also protects the switch back to alt0 on close. During enumeration each alt is temporarily claimed/released to detect actual controller/FIFO limits, instead of filtering by theoretical USB bus bandwidth alone.
 
-推送模式：
+Push mode:
 
 ```c
 euacx_stream_config_t stream = {
@@ -49,95 +51,96 @@ while (offset < size) {
 ESP_ERROR_CHECK(euacx_stream_close(port));
 ```
 
-仅打开流的任务可以 write/close 推送流。写入会复制到内部缓冲，返回后应用可复用原内存；`written` 包括已接收的未完整帧字节。超时单位 ms，0 不等待，`UINT32_MAX` 无限等待。输入可跨调用拼帧；close 是立即停止，未完整帧和未播放缓冲丢弃，推送没有 EOF 排空接口。
+Only the task that opened the stream may write/close a push stream. Writes are copied into an internal buffer, so the application can reuse its memory after return; `written` includes accepted bytes of incomplete frames. Timeouts are in ms: 0 means no wait, `UINT32_MAX` waits forever. Input may span calls to form frames. Close stops immediately and discards incomplete frames and unplayed buffers; push mode has no EOF-drain interface.
 
-拉取模式在配置中设置 `on_data` 和 `data_user`。驱动在独立 `euacx_feed` 任务调用 `on_data(port, buf, len, user)`：返回 1..len 个输入字节、0 暂无数据、`EUACX_DATA_END` 结束。供数不必帧对齐；结束时残帧补零，缓冲和在途传输排空后发出 `STOP_EOF`。返回其他负值或超出 len 导致 `STOP_ERROR`。回调应尽快返回；返回 0 时驱动重试，运行中的缓冲不足会发静音并计欠载。
+Pull mode sets `on_data` and `data_user` in the config. The driver calls `on_data(port, buf, len, user)` from the dedicated `euacx_feed` task: return 1..len input bytes, 0 for no data yet, or `EUACX_DATA_END` to finish. Feeding need not be frame-aligned; at the end a partial frame is zero-padded, and `STOP_EOF` is sent once buffers and in-flight transfers drain. Any other negative value, or a value larger than len, causes `STOP_ERROR`. The callback should return quickly; on 0 the driver retries, and a running buffer that runs short sends silence and counts an underrun.
 
-| 调用环境 | 约定 |
+| Calling context | Rules |
 |---|---|
-| 状态回调任务 `euacx_cb` | 按顺序运行 connected/stopped/disconnected，可调用公开 API；info 指针只在该回调内有效 |
-| 推送流拥有任务 | write、close；可在不同调用间提供任意长度字节 |
-| 其他应用任务 | 可查询、调音量和 abort；不可 write/close 别的任务的推送流 |
-| 拉取供数任务 | 不可 write、close/open 同一端口或 deinit；可以查询和调音量 |
-| 拉取流的其他任务 | 可 close；等待供数回调退出和 USB 传输取消后完成 |
+| Status-callback task `euacx_cb` | Runs connected/stopped/disconnected in order and may call public APIs; the info pointer is valid only inside that callback |
+| Task owning a push stream | write, close; may supply any number of bytes per call |
+| Other application tasks | May query, adjust volume, and abort; may not write/close another task's push stream |
+| Pull feed task | May not write, close/open the same port, or deinit; may query and adjust volume |
+| Other tasks of a pull stream | May close; completes after the feed callback exits and USB transfers are cancelled |
 
-`euacx_stream_abort` 不等待。推送模式下唤醒阻塞 write，使其返回 `ESP_ERR_INVALID_STATE`，流仍保持 STREAMING，随后由拥有任务 close；拉取模式下请求关闭。abort/close 在没有流时可重复调用。状态回调若长时间阻塞，通知暂存，manager 和 USB pump 继续运行；成功开流/枚举时已预留终止通知节点，队列满时按 FIFO 溢出保存。
+`euacx_stream_abort` does not wait. In push mode it wakes a blocked write, which returns `ESP_ERR_INVALID_STATE`; the stream stays STREAMING until the owning task closes it. In pull mode it requests a close. abort/close may be called repeatedly when no stream exists. If a status callback blocks for a long time, notifications are queued while the manager and USB pump keep running; terminal-notification nodes are pre-reserved on successful stream open/enumeration, and when the queue is full they overflow in FIFO order.
 
-`euacx_stream_close` 同步等待流释放。供数回调阻塞时，close 请求延迟完成，manager 仍可处理其他请求（例如音量）；应用必须让回调最终返回。`euacx_deinit` 停止流、释放设备和任务，只卸载自己安装的 Host；从状态回调调用时，最终内存释放推迟到回调退出。deinit 不会强制删除应用正在执行的供数回调。
+`euacx_stream_close` waits synchronously for the stream to be released. If the feed callback blocks, the close request completes late while the manager still handles other requests (e.g. volume); the application must let the callback eventually return. `euacx_deinit` stops streams, releases the device and tasks, and uninstalls only a host it installed itself; when called from a status callback, the final memory release is deferred until the callback exits. deinit never force-kills a feed callback the application is running.
 
-## 状态与错误
+## States and errors
 
-状态路径：`DISCONNECTED → ENUMERATING → CONNECTED ⇄ STREAMING`，拔出后返回 DISCONNECTED。拔出、达到连续 ISO 错误阈值、close 或 EOF 会为已成功打开的流发送一次 stopped；有连接通知的设备随后发送对应 `conn_id` 的 disconnected。终止理由为 `EOF/CLOSED/UNPLUGGED/ERROR`；只有 ERROR 携带流错误。
+State path: `DISCONNECTED → ENUMERATING → CONNECTED ⇄ STREAMING`, returning to DISCONNECTED on unplug. Unplug, reaching the consecutive-ISO-error threshold, close, or EOF sends stopped once for a successfully opened stream; a device that sent a connected notification then sends disconnected with the matching `conn_id`. Stop reasons are `EOF/CLOSED/UNPLUGGED/ERROR`; only ERROR carries a stream error.
 
-| 错误 | 含义 |
+| Error | Meaning |
 |---|---|
-| `ESP_ERR_INVALID_ARG` | 空参数、无效初始化配置或 PCM 格式参数 |
-| `ESP_ERR_INVALID_STATE` | 未初始化、未连接、已开流、abort 后写入、任务权限不符等 |
-| `ESP_ERR_NOT_SUPPORTED` | 不支持的位深/采样率、无音量/静音控制、DSD/DoP |
-| `ESP_ERR_TIMEOUT` | 写入等待空间或 API 请求入队超时；控制传输超时也会触发设备恢复 |
-| `ESP_ERR_NO_MEM` | 流缓冲、传输、通知或任务资源分配失败 |
+| `ESP_ERR_INVALID_ARG` | Null argument, invalid init config, or invalid PCM format parameters |
+| `ESP_ERR_INVALID_STATE` | Not initialized, not connected, stream already open, write after abort, wrong task, etc. |
+| `ESP_ERR_NOT_SUPPORTED` | Unsupported bit depth/sample rate, no volume/mute control, DSD/DoP |
+| `ESP_ERR_TIMEOUT` | Write waiting for space, or API request enqueue timeout; a control-transfer timeout also triggers device recovery |
+| `ESP_ERR_NO_MEM` | Allocation failure for stream buffers, transfers, notifications, or tasks |
 
-API 请求入队成功后等待 manager 回复，不会让引用调用者栈内存的请求提前超时返回。内部 USB 事件使用地址/拔出标志作为队列满时的保底，优先于应用请求处理。控制传输有独立堆内存和引用计数，超时后等 USB 完成回调再释放。
+Once an API request is enqueued, the caller waits for the manager's reply, so a request referencing caller stack memory never times out early. Internal USB events use address/unplug flags as a fallback when the queue is full and take priority over application requests. Control transfers have their own heap memory and reference count and are freed after the USB completion callback even if they timed out.
 
-## 硬件音量与静音
+## Hardware volume and mute
 
-`has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认；get 返回首个支持通道。多个 RANGE 子区间使用第一个并警告；res 为 0 时按 1/256 dB 处理，固定或无效范围禁用硬件音量。枚举期间对首个可读写通道执行相邻步进检测并恢复原值，读回不可信时禁用对应控制。音量/静音失败不阻止枚举或停止播放（设备掉线仍按正常断开处理）。
+`has_volume/has_mute` indicate the control is readable and writable on the playback path. Volume is signed **1/256 dB**, e.g. −10.5 dB = −2688. set clamps to min/max and aligns down to res, sends SET to the supported master/left/right channels, then reads back with GET to confirm; get returns the first supported channel. With multiple RANGE subranges, the first is used with a warning; res 0 is treated as 1/256 dB, and a fixed or invalid range disables hardware volume. During enumeration an adjacent-step probe runs on the first read/write channel and the original value is restored; untrustworthy readback disables the corresponding control. Volume/mute failures neither block enumeration nor stop playback (a device drop is still handled as a normal disconnect).
 
-UAC1 的音量范围使用 Feature Unit `GET_MIN`、`GET_MAX`、`GET_RES`，当前值使用 `GET_CUR`。ES9318 专用驱动匹配 FS 的 `262a:0002` 和 HS 的 `262a:0001`（UAC2），初始音量为 0 dB。
+UAC1 volume range uses Feature Unit `GET_MIN`, `GET_MAX`, `GET_RES`; the current value uses `GET_CUR`. The ES9318 driver matches FS `262a:0002` and HS `262a:0001` (UAC2), with an initial volume of 0 dB.
 
-CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic 的检测会恢复设备原音量。已声明读回不可信的设备在枚举时写入最小可用音量建立缓存，不读取 CUR。支持的静音控制在枚举初始化时解除。非 ASCII 产品字符串当前用 `?` 代替。
+The CX31993 driver matches only `06cb:1594`, with an initial volume of −10.5 dB; the generic probe restores the device's original volume. Devices declared to have untrustworthy readback get the lowest usable volume written at enumeration to seed the cache, without reading CUR. Supported mute controls are unmuted at enumeration. Non-ASCII product strings are currently replaced with `?`.
 
-## 配置
+## Configuration
 
-| 配置 | 默认 | 说明 |
+| Option | Default | Description |
 |---|---|---|
-| `EUACX_DRV_CX31993` | y | 专用驱动 |
-| `EUACX_DRV_ES9318` | y | ES9318 / SA9023 专用驱动及 S3 FS、P4 HS 已验证能力表 |
-| `EUACX_DRV_REPORTED` | y | 允许公开报告支持的条目；当前尚无符合全部录入条件的新条目 |
-| `EUACX_USE_VERIFIED_CAPS` | y | 使用已验证能力表（有表时） |
-| `EUACX_BUFFER_MS` | 40 | 缓冲时长下限；按管线容量和 2 的幂扩容 |
-| `EUACX_NUM_TRANSFERS` | 4 | 在途 ISO 传输数，2–8 |
-| `EUACX_MAX_ERRORS` | 8 | 连续 ISO 错误停止阈值 |
-| `EUACX_TASK_STACK` | 8192 | manager 栈字节数 |
-| `EUACX_LIB_PRIORITY` | 20 | 自有 Host 库任务优先级 |
-| `EUACX_PUMP_PRIORITY/STACK` | 19 / 8192 | USB 完成事件和初次提交任务 |
-| `EUACX_INT_QUEUE_LEN` | 8 | USB 内部事件队列长度 |
-| `EUACX_REQ_QUEUE_LEN/TIMEOUT_MS` | 8 / 2000 | 应用请求队列及入队等待 |
-| `EUACX_CB_STACK/QUEUE_LEN` | 4096 / 16 | 状态回调任务栈和通知队列 |
-| `EUACX_FEED_PRIORITY/STACK` | 10 / 8192 | 拉取供数任务 |
-| `EUACX_FEED_RETRY_MS` | 2 | 返回 0 后的重试等待（加一个调度 tick） |
-| `EUACX_RECOVERY_MS` | 5000 | 无 DAC 的根端口恢复周期，0 关闭 |
-| `EUACX_DUMP_DESCRIPTORS` | n | 输出接受的配置描述符，便于建立真实测试夹具 |
+| `EUACX_DRV_CX31993` | y | Dedicated driver |
+| `EUACX_DRV_ES9318` | y | ES9318 / SA9023 driver with S3 FS and P4 HS verified capability tables |
+| `EUACX_DRV_CS43198` | y | CS43198 (`2fc6:f0fc`) driver with P4 HS verified capability table (silent on S3 FS, see device notes); P4 needs `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
+| `EUACX_DRV_REPORTED` | y | Allow entries backed by public reports; no new entry currently meets all admission criteria |
+| `EUACX_USE_VERIFIED_CAPS` | y | Use verified capability tables (when present) |
+| `EUACX_BUFFER_MS` | 40 | Minimum buffer duration; grown to pipeline capacity and a power of two |
+| `EUACX_NUM_TRANSFERS` | 4 | In-flight ISO transfers, 2–8 |
+| `EUACX_MAX_ERRORS` | 8 | Consecutive ISO error threshold for stopping |
+| `EUACX_TASK_STACK` | 8192 | Manager stack in bytes |
+| `EUACX_LIB_PRIORITY` | 20 | Priority of the self-installed host library task |
+| `EUACX_PUMP_PRIORITY/STACK` | 19 / 8192 | USB completion event and initial submission task |
+| `EUACX_INT_QUEUE_LEN` | 8 | Internal USB event queue length |
+| `EUACX_REQ_QUEUE_LEN/TIMEOUT_MS` | 8 / 2000 | Application request queue and enqueue wait |
+| `EUACX_CB_STACK/QUEUE_LEN` | 4096 / 16 | Status-callback task stack and notification queue |
+| `EUACX_FEED_PRIORITY/STACK` | 10 / 8192 | Pull feed task |
+| `EUACX_FEED_RETRY_MS` | 2 | Retry wait after returning 0 (plus one scheduler tick) |
+| `EUACX_RECOVERY_MS` | 5000 | Root-port recovery period with no DAC; 0 disables |
+| `EUACX_DUMP_DESCRIPTORS` | n | Print accepted configuration descriptors to build real test fixtures |
 
-公开依赖只有 `esp_common`；USB/FreeRTOS/heap/esp_rom 是私有依赖。USB Host 固定 1.4.1，IDF ≥5.4，当前验证版本为 5.5.1。外部 Host 模式下，应用必须先安装 USB Host 并持续泵送库事件。
+The only public dependency is `esp_common`; USB/FreeRTOS/heap/esp_rom are private dependencies. USB Host is pinned to 1.4.1, IDF ≥ 5.4, currently verified with 5.5.1. In external-host mode the application must install USB Host first and keep pumping library events.
 
-## 新增驱动与测试
+## Adding drivers and tests
 
-通用 UAC 驱动和匹配逻辑位于 `drivers/`。设备适配在 `quirks/quirk_<name>.c` 定义能力表和行为参数，在同目录的 `quirk_entries.h` 声明条目、`quirk_table.c` 登记，并按需增加 Kconfig/CMake 条件。精确 VID:PID 优先于厂商通配，最后为 generic；同一产品下命中的 bcdDevice 范围条目优先于无范围条目。控制和流特例必须精确到产品，不允许厂商通配。驱动可使用 attach/detach、fixup_caps 和 stream_start/stop 钩子；这些钩子运行于 manager，不能同步调用公开 API。
+Generic UAC drivers and matching logic live in `drivers/`. A device adaptation defines its capability table and behavior parameters in `quirks/quirk_<name>.c`, declares its entry in `quirk_entries.h` in the same directory, registers it in `quirk_table.c`, and adds Kconfig/CMake conditions as needed. Exact VID:PID beats vendor wildcards, with generic last; within one product, an entry with a matching bcdDevice range beats one without. Control and stream quirks must be product-exact; vendor wildcards are not allowed. Drivers may use attach/detach, fixup_caps, and stream_start/stop hooks; these run on the manager and must not call public APIs synchronously.
 
-已验证表按 FS/HS 分开，记录输入位深、实际 subslot 和严格升序的采样率；只录入实际听音或录音检查、传输通过的组合。`euacx_driver_validate` 检查条目。CX31993 FS 表登记本轮 S3 PCM16（subslot2）和 PCM24（subslot3）的 8/16/32/44.1/48/96 kHz；HS 表登记 P4 PCM16/24/32（subslot2/3/4）各八档，另含 192/384 kHz，经 48 次播放和 UR22C input 1/2 录音对照验证。FS 的 PCM32 端点 MPS768 超过 S3 实测 FIFO600，因此被枚举阶段的 host claim 探测排除。
+Verified tables are split by FS/HS and record input bit depth, actual subslot, and strictly ascending sample rates; only combinations checked by actual listening or recording, with transfers passing, are entered. `euacx_driver_validate` checks entries. The CX31993 FS table registers this round's S3 PCM16 (subslot 2) and PCM24 (subslot 3) at 8/16/32/44.1/48/96 kHz; the HS table registers P4 PCM16/24/32 (subslot 2/3/4) at eight rates each, including 192/384 kHz, verified by 48 playback runs compared against UR22C input 1/2 recordings. The FS PCM32 endpoint's MPS 768 exceeds the S3's measured FIFO of 600, so the enumeration-time host claim probe excludes it.
 
-`test_pcm_model.c` 包含真实 CX31993 FS 描述符夹具，并测试播放时钟/FU、带宽、验证表与开流一致性、PCM 字节、反馈、RANGE、状态权限及计数器回绕。主机脚本还编译生产控制模块，替换传输/延时/接口 claim 以测试设备行为；板上还执行实际 USB 库重复生命周期和生产写入函数的拼帧/超时/abort 测试。示例用公开 API 验证跨任务行为、完整矩阵和长时间播放。
+`test_pcm_model.c` includes a real CX31993 FS descriptor fixture and tests the playback clock/FU, bandwidth, verified-table/stream-open consistency, PCM bytes, feedback, RANGE, state permissions, and counter wraparound. The host script also compiles the production control module, substituting transfers/delays/interface claims to test device behavior; on-board tests exercise repeated lifecycles of the real USB library and frame assembly/timeout/abort in the production write path. The examples use the public API to verify cross-task behavior, the full matrix, and long-duration playback.
 
-显式反馈目前有算法测试，仍需异步 DAC 实机验收；未支持隐式反馈、复杂时钟路由和可选 P4 双根端口。旧 DoP/native DSD 算法及测试作为 2.0 私有参考保留，不接入 1.0 播放 API。
+Explicit feedback currently has algorithm tests but still needs hardware acceptance with an asynchronous DAC; implicit feedback, complex clock routing, and the optional P4 dual root port are not supported. The old DoP/native DSD algorithms and tests are kept as a private reference for 2.0 and are not wired into the 1.0 playback API.
 
-## 设备特例与贡献须知
+## Device quirks and contribution guidelines
 
-按 [Linux 参考计划](../../plan-linux-quirks.zh.md) 实现 L0–L2 软件部分；L3 的新设备实测和 L4 原生 DSD 仍待后续。设备事实及出处集中在 [device-notes](../../docs/device-notes.md)，代码只保留名称和参数。`info.driver_flags` 用于查看匹配条目的行为；标志定义和 params 位于私有 `euacx_driver.h`。
+The L0–L2 software parts follow the [Linux reference plan](../../plan-linux-quirks.zh.md) (Chinese); L3 hardware testing of new devices and L4 native DSD are still pending. Device facts and sources are kept in [device-notes](../../docs/device-notes.md); code keeps only names and parameters. `info.driver_flags` shows the behavior of the matched entry; flag definitions and params live in the private `euacx_driver.h`.
 
-| 标志（`EUACX_DRV_` 前缀） | 行为 |
+| Flag (`EUACX_DRV_` prefix) | Behavior |
 |---|---|
-| `VOL_NO_READBACK` | 音量/静音跳过 CUR 读回，get 返回最后成功写入的缓存；部分通道写入失败后缓存无效 |
-| `VOL_MIN_IS_MUTE` | 公布的最小音量上调一个步进，设置到设备原最小值或更低时改为静音；需要可写静音 |
-| `VOL_RANGE` | params 提供 min/max/res，跳过设备 RANGE |
-| `NO_HW_VOLUME` | 不公布硬件音量 |
-| `CTL_DELAY` | 每次类请求后等待，1–20000 μs；毫秒级延时按调度 tick 向上取整 |
-| `RATE_NO_READBACK` | 设采样率后跳过频率 CUR 比较，保留时钟有效性检查 |
-| `ALT_BEFORE_RATE` | alt 0 → alt N → 设置采样率 |
-| `IFACE_DELAY` | SET_INTERFACE 到非零 alt 后等待 1–200 ms |
+| `VOL_NO_READBACK` | Volume/mute skips CUR readback; get returns the cache of the last successful write. The cache is invalidated after a partial channel write failure |
+| `VOL_MIN_IS_MUTE` | Raise the published minimum volume by one step; setting to the device's original minimum or lower mutes instead. Requires writable mute |
+| `VOL_RANGE` | params supply min/max/res, skipping the device RANGE |
+| `NO_HW_VOLUME` | Do not publish hardware volume |
+| `CTL_DELAY` | Wait 1–20000 μs after each class request; millisecond delays round up to scheduler ticks |
+| `RATE_NO_READBACK` | Skip the frequency CUR comparison after setting the rate, keeping the clock-validity check |
+| `ALT_BEFORE_RATE` | alt 0 → alt N → set sample rate |
+| `IFACE_DELAY` | Wait 1–200 ms after SET_INTERFACE to a non-zero alt |
 
-UAC2 默认顺序为 alt 0 → 设置并读回采样率 → alt N。同位深/subslot 的 PCM alt 按最小可用 MPS 选择；设备声明有效 alt 控制时，设好频率后读取带长度字节的位图，排除无效候选，再尝试下一个。失败时回到 alt 0 并释放接口。缓冲及 ISO 传输按最终选中的 alt 分配。
+The default UAC2 order is alt 0 → set and read back sample rate → alt N. Among PCM alts with the same bit depth/subslot, the one with the smallest usable MPS is chosen; if the device declares a valid-alt control, after setting the frequency the bitmap (with length byte) is read to exclude invalid candidates before trying the next one. On failure the driver returns to alt 0 and releases the interface. Buffers and ISO transfers are sized for the finally selected alt.
 
-新增条目先写事实记录，再独立实现。`verified` 必须有本项目 S3/P4 实测，能力表还需听音或录音及传输验证；`reported` 必须有包含 USB ID 和现象的公开报告，设置 `.reported = true`，受 `EUACX_DRV_REPORTED` 控制且连接日志标明证据等级；`guess` 只进文档。协议版本未确定、现象无法对应本项目标志时暂不录入。每个新设备条目应独立提交并在提交说明写明现象和证据。
+For a new entry, write the fact record first, then implement independently. `verified` requires this project's own S3/P4 testing, and capability tables additionally need listening or recording plus transfer verification. `reported` requires a public report containing the USB ID and symptom, sets `.reported = true`, is gated by `EUACX_DRV_REPORTED`, and the connection log states the evidence level. `guess` goes into documentation only. Do not add an entry when the protocol version is undetermined or the symptom does not map to one of this project's flags. Each new device entry should be committed on its own, with the symptom and evidence in the commit message.
 
-本项目采用 MIT，不接受 Linux GPL 代码、头文件、宏、设备表或对其进行翻译/逐段改写；不得以 Linux 内部名称建立代码对应关系，也不得在编写实现时打开其源代码对照。Linux 社区报告只用于提取设备事实，协议实现依据 USB-IF 规范；不导入其他项目源码。2026-10-06 默认及关闭 CX31993/reported 两种配置各 55 项主机测试通过，S3/P4 示例编译通过；随后 P4 v1.3 上 39 项板上测试及 CX31993 的 48 次矩阵播放通过，拉取零错误/零欠载，用户确认声音正常；S3 与新特例设备仍待验收。主机测试先执行 `scripts/check_license.ps1` 和八个违规样例，扫描自有 components/examples/scripts 的源文件，排除第三方、文档和构建产物。
+This project is MIT-licensed and does not accept Linux GPL code, headers, macros, device tables, or translations/paragraph-by-paragraph rewrites of them; do not build code correspondences on Linux internal names, and do not open its source for comparison while writing an implementation. Linux community reports are used only to extract device facts; the protocol implementation follows the USB-IF specifications; no source from other projects is imported. On 2026-10-06, 55 host tests passed in both the default configuration and the configuration with CX31993/reported disabled, and the S3/P4 examples compiled; afterwards 39 on-board tests on P4 v1.3 and 48 CX31993 matrix playbacks passed, with zero errors/zero underruns on pull and the user confirming normal sound. S3 and the new quirk devices are still pending acceptance. Host tests first run `scripts/check_license.ps1` and eight violation samples, scanning source files in the project's own components/examples/scripts and excluding third-party code, docs, and build artifacts.

@@ -22,7 +22,26 @@ Verified 2026-10-05: host-only algorithm tests pass **33 cases** each with CX319
 
 Host regression for the current ES9318 changes passes 59 cases each in the default, CX31993-disabled, ES9318-disabled, and reported-entries-disabled configurations, covering ES9318 FS/HS descriptors, the driver table, and ISO scheduling packet counts.
 
-For detailed progress see the [plan](plan.zh.md), the [component API docs](components/easy-esp-uacx/README.md), and the [examples and acceptance steps](examples/README.md).
+For detailed progress see the [plan](plan.zh.md) (Chinese), the [component API docs](components/easy-esp-uacx/README.md), and the [examples and acceptance steps](examples/README.md).
+
+## Supported DACs
+
+DACs with a hardware-verified driver entry (environment: ESP-IDF 5.5.1, USB Host 1.4.1):
+
+| DAC | USB ID | Class | Board / speed | PCM | Sample rates | Kconfig | Verified |
+|---|---|---|---|---|---|---|---|
+| CX31993 | `06cb:1594` | UAC2 | S3 FS | 16/24 | 8, 16, 32, 44.1, 48, 96 kHz | `EUACX_DRV_CX31993` | 2026-10-05 |
+| CX31993 | `06cb:1594` | UAC2 | P4 HS | 16/24/32 | 8, 16, 32, 44.1, 48, 96, 192, 384 kHz | `EUACX_DRV_CX31993` | 2026-10-05 |
+| ES9318 / Savitech SA9023 | `262a:0002` | UAC1 | S3 FS | 16/24 | 32, 44.1, 48, 88.2, 96 kHz | `EUACX_DRV_ES9318` | 2026-11-22 |
+| ES9318 / Savitech SA9023 | `262a:0001` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz (8 rates) | `EUACX_DRV_ES9318` | 2026-11-22 |
+| CS43198 (YUNJI43198PRO) | `2fc6:f0fc` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz (8 rates) | `EUACX_DRV_CS43198` | 2026-11-22 |
+
+Notes:
+
+- ES9318 on P4 HS reports mute GET as always 0, so mute readback is disabled; volume readback works.
+- CS43198 declares a 776-byte ISO OUT MPS at both speeds. **S3 FS adaptation failed**: every alt exceeds the S3 600-byte FIFO, and experiments that capped the MPS or copied the Windows open order streamed cleanly but stayed silent, so S3 publishes no PCM capability for it ([details](docs/device-notes.md#s3-fs-adaptation-failed)). P4 needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (already set in `examples/p4/sdkconfig.defaults`).
+- Other standard UAC2 DACs fall back to the generic driver and may work, but are not verified. Reported candidates (Edifier MF200, SMSL, iFi iDSD) have no driver entry yet; see [device notes](docs/device-notes.md).
+- To add a DAC, collect its VID:PID, full descriptors and a reproduction, then follow the admission steps in the device notes.
 
 ## Quick start
 
@@ -104,6 +123,7 @@ The ES9318 (Savitech SA9023, `262a:0002`) S3 FS capability table contains PCM16/
 |---|---|---|
 | `EUACX_DRV_CX31993` | y | Dedicated driver for `06cb:1594` with −10.5 dB initial volume |
 | `EUACX_DRV_ES9318` | y | Dedicated driver, capability tables and 0 dB initial volume for `262a:0002` (FS) and `262a:0001` (HS) |
+| `EUACX_DRV_CS43198` | y | Dedicated driver, P4 HS capability table and −10.5 dB initial volume for `2fc6:f0fc` |
 | `EUACX_USE_VERIFIED_CAPS` | y | When a verified table exists, publish only the intersection of the table and the descriptors; generic uses descriptor capabilities |
 | `EUACX_BUFFER_MS` | 40 | Minimum buffer duration, grown to fit the USB pipeline and rounded up to a power of two |
 | `EUACX_NUM_TRANSFERS` | 4 | In-flight ISO transfers (2–8) |
@@ -146,4 +166,4 @@ Original code is licensed under [MIT](LICENSE), copyright easymcucourse; the ESP
 
 ## Device behavior references
 
-Device behavior facts are drawn from public Linux community issue reports, and the protocol implementation follows [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf); this repository contains no Linux code or device tables. For the 1.1 device-quirk implementation and acceptance progress, see the [reference plan](plan-linux-quirks.zh.md), the [device notes](docs/device-notes.md), and the component contribution guidelines. Host tests now include device control simulation; `./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` checks the configuration with device entries disabled.
+Device behavior facts are drawn from public Linux community issue reports, and the protocol implementation follows [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf); this repository contains no Linux code or device tables. For the 1.1 device-quirk implementation and acceptance progress, see the [reference plan](plan-linux-quirks.zh.md) (Chinese), the [device notes](docs/device-notes.md), and the component contribution guidelines. Host tests now include device control simulation; `./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` checks the configuration with device entries disabled.

@@ -22,7 +22,26 @@
 
 当前 ES9318 改动的主机回归在默认、关闭 CX31993、关闭 ES9318、关闭 reported 条目配置下各通过 59 项，覆盖 ES9318 FS/HS 描述符、驱动表和 ISO 调度包数。
 
-详细进度见 [计划](plan.zh.md)、[组件 API 文档](components/easy-esp-uacx/README.md) 和 [示例与验收步骤](examples/README.md)。
+详细进度见 [计划](plan.zh.md)、[组件 API 文档](components/easy-esp-uacx/README.zh.md) 和 [示例与验收步骤](examples/README.zh.md)。
+
+## 适配声卡清单
+
+已有硬件验证驱动条目的 DAC（环境：ESP-IDF 5.5.1、USB Host 1.4.1）：
+
+| 声卡 | USB ID | 类别 | 板卡 / 速度 | PCM | 采样率 | Kconfig | 验证日期 |
+|---|---|---|---|---|---|---|---|
+| CX31993 | `06cb:1594` | UAC2 | S3 FS | 16/24 | 8、16、32、44.1、48、96 kHz | `EUACX_DRV_CX31993` | 2026-10-05 |
+| CX31993 | `06cb:1594` | UAC2 | P4 HS | 16/24/32 | 8、16、32、44.1、48、96、192、384 kHz | `EUACX_DRV_CX31993` | 2026-10-05 |
+| ES9318 / Savitech SA9023 | `262a:0002` | UAC1 | S3 FS | 16/24 | 32、44.1、48、88.2、96 kHz | `EUACX_DRV_ES9318` | 2026-11-22 |
+| ES9318 / Savitech SA9023 | `262a:0001` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz（8 档） | `EUACX_DRV_ES9318` | 2026-11-22 |
+| CS43198（YUNJI43198PRO） | `2fc6:f0fc` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz（8 档） | `EUACX_DRV_CS43198` | 2026-11-22 |
+
+说明：
+
+- ES9318 在 P4 HS 下静音 GET 恒为 0，因此关闭静音读回；音量读回正常。
+- CS43198 在两种速度下都声明 776 字节 ISO OUT MPS。**S3 FS 适配失败**：各 alt 都超过 S3 600 字节 FIFO，限制 MPS 或照搬 Windows 开流顺序的实验能正常传输但始终无声，因此 S3 上不公布任何 PCM 能力（[详情](docs/device-notes.zh.md#s3-fs-适配失败)）；P4 需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`examples/p4/sdkconfig.defaults` 已设置）。
+- 其他标准 UAC2 DAC 回退到 generic 驱动，可能可用但未经验证。公开报告中的候选设备（漫步者 MF200、SMSL、iFi iDSD）尚未加入驱动条目，见 [设备记录](docs/device-notes.zh.md)。
+- 如需适配新声卡，请先收集 VID:PID、完整描述符和问题复现，再按设备记录中的准入步骤提交。
 
 ## 快速开始
 
@@ -84,7 +103,7 @@ void app_main(void)
 
 默认已验证能力模式下，CX31993 的 FS 表包含本轮通过的 PCM16/24 六档组合，HS 表包含 PCM16/24/32 八档组合（最高 384 kHz）。开发测试可关闭 `EUACX_USE_VERIFIED_CAPS`；读取的能力按输入位深分别保存在 `info.pcm[0/1/2]`，开流仍会设置并读回采样率。
 
-ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，采样率为 32、44.1、48、88.2、96 kHz。接到 P4 HS 口时以 `262a:0001` 枚举为 UAC2，能力表包含 PCM16/24/32，采样率 44.1–384 kHz 共八档。使用同一套公开 API，设备细节见 [设备记录](docs/device-notes.md#262a0002-es9318--savitech-sa9023)。
+ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，采样率为 32、44.1、48、88.2、96 kHz。接到 P4 HS 口时以 `262a:0001` 枚举为 UAC2，能力表包含 PCM16/24/32，采样率 44.1–384 kHz 共八档。使用同一套公开 API，设备细节见 [设备记录](docs/device-notes.zh.md#262a0002-es9318--savitech-sa9023)。
 
 ## 测试与配置
 
@@ -104,6 +123,7 @@ ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，�
 |---|---|---|
 | `EUACX_DRV_CX31993` | y | `06cb:1594` 专用驱动及 −10.5 dB 初始音量 |
 | `EUACX_DRV_ES9318` | y | `262a:0002`（FS）和 `262a:0001`（HS）专用驱动、能力表及 0 dB 初始音量 |
+| `EUACX_DRV_CS43198` | y | `2fc6:f0fc` 专用驱动、P4 HS 能力表及 −10.5 dB 初始音量 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 有已验证表时只公布表与描述符的交集；generic 使用描述符能力 |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限，按 USB 管线和 2 的幂扩容 |
 | `EUACX_NUM_TRANSFERS` | 4 | 在途 ISO 传输数（2–8） |
@@ -146,4 +166,4 @@ ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，�
 
 ## 设备行为参考
 
-设备行为事实参考 Linux 社区公开问题报告，协议实现依据 [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf)；本仓库不包含 Linux 代码或设备表。1.1 设备特例软件实现及验收进度见 [参考计划](plan-linux-quirks.zh.md)、[设备记录](docs/device-notes.md) 和组件贡献须知。主机测试现包含设备控制模拟；`./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` 检查关闭设备条目的配置。
+设备行为事实参考 Linux 社区公开问题报告，协议实现依据 [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf)；本仓库不包含 Linux 代码或设备表。1.1 设备特例软件实现及验收进度见 [参考计划](plan-linux-quirks.zh.md)、[设备记录](docs/device-notes.zh.md) 和组件贡献须知。主机测试现包含设备控制模拟；`./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` 检查关闭设备条目的配置。

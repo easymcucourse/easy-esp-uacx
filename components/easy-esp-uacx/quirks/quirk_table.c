@@ -16,6 +16,9 @@ const euacx_driver_t *euacx_driver_find(uint16_t vid, uint16_t pid, uint16_t bcd
         &euacx_quirk_es9318,
         &euacx_quirk_es9318_hs,
 #endif
+#ifdef CONFIG_EUACX_DRV_CS43198
+        &euacx_quirk_cs43198,
+#endif
         &euacx_drv_generic,
     };
     return euacx_driver_match(table, sizeof(table) / sizeof(table[0]), vid, pid, bcd);

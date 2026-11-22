@@ -235,6 +235,30 @@ TEST_CASE("drivers: ES9318 verified driver table", "[euacx][drivers]")
 #endif
 }
 
+TEST_CASE("drivers: CS43198 verified HS driver table", "[euacx][drivers]")
+{
+    const euacx_driver_t *d = euacx_driver_find(0x2fc6, 0xf0fc, 0);
+#ifdef CONFIG_EUACX_DRV_CS43198
+    TEST_ASSERT_EQUAL_STRING("cs43198", d->name);
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
+    TEST_ASSERT_EQUAL_UINT32(0, d->flags);
+    TEST_ASSERT_EQUAL_UINT8(0, d->verified->num_fs);
+    TEST_ASSERT_EQUAL_UINT8(3, d->verified->num_hs);
+    TEST_ASSERT_EQUAL_INT16(-2688, d->verified->volume_db256);
+    for (unsigned i = 0; i < 3; ++i) {
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, d->verified->hs[i].bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, d->verified->hs[i].subslot);
+        TEST_ASSERT_EQUAL_UINT8(8, d->verified->hs[i].rates.num_rates);
+        TEST_ASSERT_EQUAL_UINT32(44100, d->verified->hs[i].rates.rates[0]);
+        TEST_ASSERT_EQUAL_UINT32(384000, d->verified->hs[i].rates.rates[7]);
+    }
+#else
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, d);
+#endif
+    /* Only the captured product is matched; no vendor wildcard. */
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x2fc6, 0xf0fd, 0));
+}
+
 TEST_CASE("drivers: verified tables reject invalid bit depth and rate order", "[euacx][drivers]")
 {
     euacx_verified_pcm_t pcm = { .bits = 24, .subslot = 3,

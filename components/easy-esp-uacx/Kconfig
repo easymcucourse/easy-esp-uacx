@@ -11,6 +11,9 @@ menu "Easy UAC2 playback"
     config EUACX_DRV_ES9318
         bool "Include ES9318 / SA9023 driver (262a:0002)"
         default y
+    config EUACX_DRV_CS43198
+        bool "Include CS43198 driver (2fc6:f0fc, HS; P4 needs periodic-OUT FIFO bias)"
+        default y
     config EUACX_NUM_TRANSFERS
         int "ISO transfers in flight"
         range 2 8
