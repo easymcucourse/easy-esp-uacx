@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-#include "euacx_driver.h"
+#include "quirk_entries.h"
 
 /* FS: public API push/pull matrix passed 2026-10-05; listener confirmed
  * startup pop eliminated after muted priming. 32-bit MPS768 exceeds S3's
@@ -30,6 +30,6 @@ static const euacx_verified_caps_t caps = {
     .verified = "2026-10-05 public API; HS recorded on UR22C input 1/2; S3 v0.2 / P4 v1.3; IDF5.5.1 USB1.4.1",
 };
 
-const euacx_driver_t euacx_drv_cx31993 = {
+const euacx_driver_t euacx_quirk_cx31993 = {
     .name = "cx31993", .vid = 0x06cb, .pid = 0x1594, .verified = &caps,
 };

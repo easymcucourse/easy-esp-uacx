@@ -175,7 +175,7 @@ TEST_CASE("drivers: only verified CX31993 USB ID is registered", "[euacx][driver
 {
     const euacx_driver_t *d = euacx_driver_find(0x06cb, 0x1594, 0);
 #ifdef CONFIG_EUACX_DRV_CX31993
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_cx31993, d);
+    TEST_ASSERT_EQUAL_STRING("cx31993", d->name);
     TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
     TEST_ASSERT_EQUAL_UINT8(2, d->verified->num_fs);
     TEST_ASSERT_EQUAL_UINT8(16, d->verified->fs[0].bits);
@@ -200,11 +200,11 @@ TEST_CASE("drivers: only verified CX31993 USB ID is registered", "[euacx][driver
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x20b1, 0x1234, 0));
 }
 
-#ifdef CONFIG_EUACX_DRV_ES9318
 TEST_CASE("drivers: ES9318 verified driver table", "[euacx][drivers]")
 {
     const euacx_driver_t *d = euacx_driver_find(0x262a, 0x0002, 0);
-    TEST_ASSERT_EQUAL_PTR(&euacx_drv_es9318, d);
+#ifdef CONFIG_EUACX_DRV_ES9318
+    TEST_ASSERT_EQUAL_STRING("es9318", d->name);
     TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
     TEST_ASSERT_EQUAL_UINT8(2, d->verified->num_fs);
     TEST_ASSERT_EQUAL_UINT8(16, d->verified->fs[0].bits);
@@ -215,8 +215,25 @@ TEST_CASE("drivers: ES9318 verified driver table", "[euacx][drivers]")
     TEST_ASSERT_EQUAL_UINT8(5, d->verified->fs[1].rates.num_rates);
     TEST_ASSERT_EQUAL_UINT32(32000, d->verified->fs[0].rates.rates[0]);
     TEST_ASSERT_EQUAL_UINT32(96000, d->verified->fs[0].rates.rates[4]);
-}
+    TEST_ASSERT_EQUAL_UINT8(0, d->verified->num_hs);
+    const euacx_driver_t *hs = euacx_driver_find(0x262a, 0x0001, 0);
+    TEST_ASSERT_EQUAL_STRING("es9318", hs->name);
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(hs));
+    TEST_ASSERT_EQUAL_UINT32(0, hs->flags);
+    TEST_ASSERT_EQUAL_UINT8(0, hs->verified->num_fs);
+    TEST_ASSERT_EQUAL_UINT8(3, hs->verified->num_hs);
+    for (unsigned i = 0; i < 3; ++i) {
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, hs->verified->hs[i].bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, hs->verified->hs[i].subslot);
+        TEST_ASSERT_EQUAL_UINT8(8, hs->verified->hs[i].rates.num_rates);
+        TEST_ASSERT_EQUAL_UINT32(44100, hs->verified->hs[i].rates.rates[0]);
+        TEST_ASSERT_EQUAL_UINT32(384000, hs->verified->hs[i].rates.rates[7]);
+    }
+#else
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, d);
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x262a, 0x0001, 0));
 #endif
+}
 
 TEST_CASE("drivers: verified tables reject invalid bit depth and rate order", "[euacx][drivers]")
 {

@@ -380,7 +380,7 @@ typedef struct euacx_driver {
 | `generic` | 其他所有 UAC2 设备 | 只用描述符能力 |
 | `cx31993` | `06cb:1594` | 已实测能力：FS 24 位 44.1 / 48 / 96 kHz；HS 24 位 44.1 / 48 / 96 / 192 kHz；默认音量 −10.5 dB。16 / 32 位在 M2 实测后补入 |
 
-`0572:1B08`、`0572:1B09`（CX31993 其他 ID）没有实测，暂不加入。DSD 设备的驱动（如 XMOS `20b1:*`，标记 `EUACX_DRV_NATIVE_DSD`、`fixup_caps` 把 RAW_DATA alt 标为原生 DSD）在 2.0 按实际适配的 DAC 新增，1.0 不包含 `xmos` 驱动。新增设备只需新建 `drivers/drv_<name>.c` 并在驱动表中加一行，用 Kconfig 开关控制是否编译。
+`0572:1B08`、`0572:1B09`（CX31993 其他 ID）没有实测，暂不加入。DSD 设备的驱动（如 XMOS `20b1:*`，标记 `EUACX_DRV_NATIVE_DSD`、`fixup_caps` 把 RAW_DATA alt 标为原生 DSD）在 2.0 按实际适配的 DAC 新增，1.0 不包含 `xmos` 驱动。新增设备只需新建 `quirks/quirk_<name>.c` 并在驱动表中加一行，用 Kconfig 开关控制是否编译。
 
 ## 5. 能力与流
 ### 5.1 描述符能力
@@ -660,9 +660,10 @@ sequenceDiagram
 | `stream/euacx_ring.c`、`stream/euacx_packetizer.c` | 改名 | 环形缓冲、包长计算 |
 | `format/euacx_pcm.c` | 改写 | PCM 位深转换 |
 | `format/euacx_dop.c`、`format/euacx_native_dsd.c` | 2.0 改写（1.0 保留现有 `uac2_dop.c` / `uac2_native_dsd.c`，不接入流程） | DoP 和原生 DSD 打包 |
-| `drivers/euacx_drivers.c` | 由 `quirk_table.c` 改写 | 驱动表与匹配 |
-| `drivers/drv_generic.c`、`drv_cx31993.c` | 由 quirk 文件改写 | 各驱动 |
-| `quirks/quirk_xmos.c` | 1.0 删除 | 2.0 按实际适配的 DAC 新建 `drivers/drv_<name>.c` |
+| `drivers/euacx_drivers.c` | 通用匹配与验证 | 按 VID:PID 和固件版本匹配条目 |
+| `drivers/drv_generic.c` | 通用 UAC 驱动 | 未命中设备条目时使用 |
+| `quirks/quirk_table.c` | 可选设备注册表 | 登记同目录下的 CX31993 和 ES9318 适配 |
+| `quirks/quirk_xmos.c` | 1.0 删除 | 2.0 按实际适配的 DAC 新建 `quirks/quirk_<name>.c` |
 | `uac2_host/`（整个目录） | 删除 | 上游 esp-uac2-host 副本，见第 6.1 节 |
 | `quirks/quirk_cmedia.c` | 删除 | 没有设备和需求 |
 | `port/euacx_os.c`、`port/euacx_mem.c` | 改写 / 改名 | 任务、锁、内存分配封装 |
@@ -739,7 +740,7 @@ sequenceDiagram
 ### 2.0 版：DSD
 1.0 发布后开始，先确定要适配的 DSD DAC（型号、VID:PID、DoP 还是原生 DSD），再按该设备实现：
 - DSD 推送、DoP 推送（透传、32 位容器、还原为原生 DSD、标记检查）、原生 DSD 打包、DSD 静音码。
-- 为该 DAC 新增驱动 `drivers/drv_<name>.c`（原生 DSD 设备标记 `EUACX_DRV_NATIVE_DSD`，在 `fixup_caps` 中标出 RAW_DATA alt，按设备确定字节序），写入已实测的 DSD 速率和方式。
+- 为该 DAC 新增驱动 `quirks/quirk_<name>.c`（原生 DSD 设备标记 `EUACX_DRV_NATIVE_DSD`，在 `fixup_caps` 中标出 RAW_DATA alt，按设备确定字节序），写入已实测的 DSD 速率和方式。
 - 测试程序的 DSD 测试音，每个 DSD 速率分别用 DSD 输入和 DoP 输入各播放一次，两者听感应一致。
 - 验收：DoP 需要 HS（P4），验证 DoP64（176.4 kHz / 24 位）及设备支持的更高速率；原生 DSD 设备验证其支持的全部速率；1.0 的 PCM 测试全部仍然通过。
 - 接口不变：1.0 的应用代码不用修改即可在 2.0 中推送 DSD / DoP。

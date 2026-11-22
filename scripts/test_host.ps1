@@ -4,7 +4,8 @@ param(
     [string]$IdfPath = 'C:\Espressif\frameworks\esp-idf-v5.5.1',
     [string]$Compiler = 'gcc',
     [switch]$WithoutCx31993,
-    [switch]$WithoutReported
+    [switch]$WithoutReported,
+    [switch]$WithoutEs9318
 )
 $ErrorActionPreference = 'Stop'
 & (Join-Path $PSScriptRoot 'check_license.ps1')
@@ -25,7 +26,9 @@ if ($WithoutCx31993) {
 if (-not $WithoutReported) { $taskDefine += "`n#define CONFIG_EUACX_DRV_REPORTED 1" }
 Set-Content -LiteralPath (Join-Path $taskOutput 'sdkconfig.h') -Value $taskDefine -Encoding ascii
 Add-Content -LiteralPath (Join-Path $taskOutput 'sdkconfig.h') -Value '#define CONFIG_EUACX_NUM_TRANSFERS 4' -Encoding ascii
-Add-Content -LiteralPath (Join-Path $taskOutput 'sdkconfig.h') -Value '#define CONFIG_EUACX_DRV_ES9318 1' -Encoding ascii
+if (-not $WithoutEs9318) {
+    Add-Content -LiteralPath (Join-Path $taskOutput 'sdkconfig.h') -Value '#define CONFIG_EUACX_DRV_ES9318 1' -Encoding ascii
+}
 $taskUnity = Join-Path $IdfPath 'components/unity/unity/src'
 $taskArgs = @('-std=c11', '-Wall', '-Wextra', '-Werror', '-o', $taskExe,
     "-I$taskOutput", "-I$taskHost", "-I$taskUnity",
@@ -36,8 +39,9 @@ $taskSources = @('test/test_easy_uacx.c', 'test/test_pcm_model.c', 'test/host/te
     'stream/euacx_spsc.c', 'core/euacx_selector.c',
     'stream/euacx_packetizer.c', 'stream/euacx_ring.c', 'format/euacx_pcm.c',
     'format/uac2_dop.c', 'format/uac2_native_dsd.c',
-    'drivers/euacx_drivers.c', 'drivers/drv_generic.c', 'drivers/drv_es9318.c')
-if (-not $WithoutCx31993) { $taskSources += 'drivers/drv_cx31993.c' }
+    'drivers/euacx_drivers.c', 'drivers/drv_generic.c', 'quirks/quirk_table.c')
+if (-not $WithoutEs9318) { $taskSources += 'quirks/quirk_es9318.c' }
+if (-not $WithoutCx31993) { $taskSources += 'quirks/quirk_cx31993.c' }
 foreach ($taskSource in $taskSources) { $taskArgs += Join-Path $taskComponent $taskSource }
 & $Compiler @taskArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -19,14 +19,15 @@ set(srcs
     format/uac2_dop.c
     format/uac2_native_dsd.c
     drivers/euacx_drivers.c
+    quirks/quirk_table.c
     drivers/drv_generic.c
     port/euacx_mem.c)
 
 if(CONFIG_EUACX_DRV_CX31993)
-    list(APPEND srcs drivers/drv_cx31993.c)
+    list(APPEND srcs quirks/quirk_cx31993.c)
 endif()
 if(CONFIG_EUACX_DRV_ES9318)
-    list(APPEND srcs drivers/drv_es9318.c)
+    list(APPEND srcs quirks/quirk_es9318.c)
 endif()
 
 # DoP/native DSD are private legacy helpers retained for tests only.

@@ -7,6 +7,7 @@
 #include "euacx_model.h"
 #include "fixtures/cx31993_fs.h"
 #include "fixtures/es9318_fs.h"
+#include "fixtures/es9318_hs.h"
 
 static euacx_dev_caps_t model(void)
 {
@@ -63,6 +64,45 @@ TEST_CASE("parser: real ES9318 FS descriptor resolves UAC1 alts and Feature Unit
     TEST_ASSERT_EQUAL_UINT8(10, f->id);
     TEST_ASSERT_EQUAL_UINT32(1, f->mute_write);
     TEST_ASSERT_EQUAL_UINT32(6, f->volume_write);
+}
+TEST_CASE("parser: real ES9318 HS descriptor is UAC2 with 8-microframe feedback", "[euacx][parser]")
+{
+    euacx_dev_caps_t d;
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_parse(es9318_hs_config, sizeof(es9318_hs_config), &d));
+    TEST_ASSERT_FALSE(d.is_uac1);
+    TEST_ASSERT_TRUE(d.num_alts >= 3);
+    for (unsigned i = 0; i < 3; ++i) {
+        euacx_alt_t *a = &d.alts[i];
+        TEST_ASSERT_EQUAL_UINT8(2, a->interface);
+        TEST_ASSERT_EQUAL_UINT8(i + 1, a->alt);
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, a->bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, a->subslot);
+        TEST_ASSERT_EQUAL_UINT16(200 + i * 100, a->mps);
+        TEST_ASSERT_EQUAL_UINT8(0x84, a->feedback_ep);
+        TEST_ASSERT_EQUAL_UINT32(8, euacx_feedback_ticks(a));
+        /* 8 feedback packets x 8 microframes overflow IDF's 61-slot ISO list. */
+        TEST_ASSERT_EQUAL_UINT(7, euacx_iso_packets(euacx_feedback_ticks(a), 8));
+        /* UAC2 rates come from the clock RANGE reply at runtime. */
+        a->rates = (euacx_rate_list_t){.num_rates = 1, .rates = {384000}};
+        TEST_ASSERT_TRUE(euacx_alt_fits(a, EUACX_SPEED_HS, 384000, a->bits));
+    }
+}
+TEST_CASE("ISO scheduling: packets times interval stay within the IDF transfer list", "[euacx][iso]")
+{
+    TEST_ASSERT_EQUAL_UINT(32, euacx_iso_packets(1, 32));
+    TEST_ASSERT_EQUAL_UINT(30, euacx_iso_packets(2, 32));
+    TEST_ASSERT_EQUAL_UINT(7, euacx_iso_packets(8, 8));
+    TEST_ASSERT_EQUAL_UINT(1, euacx_iso_packets(32, 8));
+    TEST_ASSERT_EQUAL_UINT(0, euacx_iso_packets(64, 8));
+    TEST_ASSERT_EQUAL_UINT(0, euacx_iso_packets(0, 8));
+    for (uint32_t t = 1; t <= EUACX_ISO_SCHEDULE_SLOTS; t <<= 1)
+        TEST_ASSERT_TRUE(euacx_iso_packets(t, 32) * t <= EUACX_ISO_SCHEDULE_SLOTS);
+    euacx_dev_caps_t d = model();
+    euacx_alt_t *a = &d.alts[1];
+    a->feedback_ep = 0x81; a->feedback_mps = 4; a->feedback_interval = 7; /* 64 microframes */
+    TEST_ASSERT_FALSE(euacx_alt_fits(a, EUACX_SPEED_HS, 48000, 24));
+    a->feedback_interval = 6; /* 32 microframes: one packet per transfer */
+    TEST_ASSERT_TRUE(euacx_alt_fits(a, EUACX_SPEED_HS, 48000, 24));
 }
 TEST_CASE("PCM selector: exact bits, narrowest conversion, bandwidth and DSD reject", "[euacx][selector]")
 {

@@ -65,6 +65,8 @@ python scripts/record_input.py --input 'Input 1/2' --seconds 105 --output tmp/p4
 
 ES9318 在 S3 FS 上的默认矩阵覆盖 PCM16/24 各五档（32、44.1、48、88.2、96 kHz），推送和拉取共 20 个用例。可在串口输出中确认 VID:PID 为 `262a:0002`、驱动为 `es9318`，并用上面的 `check_validation.py` 检查矩阵日志。硬件记录见 [ES9318 设备记录](../docs/device-notes.md#262a0002-es9318--savitech-sa9023)。
 
+ES9318 接到 P4 HS 口时以 `262a:0001` 枚举，矩阵覆盖 PCM16/24/32 各八档（44.1–384 kHz），推送和拉取共 48 个用例。
+
 ## 配置
 
 | 配置 | 默认 / 用途 |

@@ -83,7 +83,7 @@ API 请求入队成功后等待 manager 回复，不会让引用调用者栈内�
 
 `has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认；get 返回首个支持通道。多个 RANGE 子区间使用第一个并警告；res 为 0 时按 1/256 dB 处理，固定或无效范围禁用硬件音量。枚举期间对首个可读写通道执行相邻步进检测并恢复原值，读回不可信时禁用对应控制。音量/静音失败不阻止枚举或停止播放（设备掉线仍按正常断开处理）。
 
-UAC1 的音量范围使用 Feature Unit `GET_MIN`、`GET_MAX`、`GET_RES`，当前值使用 `GET_CUR`。ES9318 专用驱动匹配 `262a:0002`，初始音量为 0 dB。
+UAC1 的音量范围使用 Feature Unit `GET_MIN`、`GET_MAX`、`GET_RES`，当前值使用 `GET_CUR`。ES9318 专用驱动匹配 FS 的 `262a:0002` 和 HS 的 `262a:0001`（UAC2），初始音量为 0 dB。
 
 CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic 的检测会恢复设备原音量。已声明读回不可信的设备在枚举时写入最小可用音量建立缓存，不读取 CUR。支持的静音控制在枚举初始化时解除。非 ASCII 产品字符串当前用 `?` 代替。
 
@@ -92,7 +92,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | 配置 | 默认 | 说明 |
 |---|---|---|
 | `EUACX_DRV_CX31993` | y | 专用驱动 |
-| `EUACX_DRV_ES9318` | y | ES9318 / SA9023 专用驱动及 S3 FS 已验证能力表 |
+| `EUACX_DRV_ES9318` | y | ES9318 / SA9023 专用驱动及 S3 FS、P4 HS 已验证能力表 |
 | `EUACX_DRV_REPORTED` | y | 允许公开报告支持的条目；当前尚无符合全部录入条件的新条目 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 使用已验证能力表（有表时） |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限；按管线容量和 2 的幂扩容 |
@@ -113,7 +113,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 
 ## 新增驱动与测试
 
-在 `drivers/drv_<name>.c` 定义 `euacx_driver_t`，在 `euacx_drivers.c` 登记，并按需增加 Kconfig/CMake 条件。精确 VID:PID 优先于厂商通配，最后为 generic；同一产品下命中的 bcdDevice 范围条目优先于无范围条目。控制和流特例必须精确到产品，不允许厂商通配。驱动可使用 attach/detach、fixup_caps 和 stream_start/stop 钩子；这些钩子运行于 manager，不能同步调用公开 API。
+通用 UAC 驱动和匹配逻辑位于 `drivers/`。设备适配在 `quirks/quirk_<name>.c` 定义能力表和行为参数，在同目录的 `quirk_entries.h` 声明条目、`quirk_table.c` 登记，并按需增加 Kconfig/CMake 条件。精确 VID:PID 优先于厂商通配，最后为 generic；同一产品下命中的 bcdDevice 范围条目优先于无范围条目。控制和流特例必须精确到产品，不允许厂商通配。驱动可使用 attach/detach、fixup_caps 和 stream_start/stop 钩子；这些钩子运行于 manager，不能同步调用公开 API。
 
 已验证表按 FS/HS 分开，记录输入位深、实际 subslot 和严格升序的采样率；只录入实际听音或录音检查、传输通过的组合。`euacx_driver_validate` 检查条目。CX31993 FS 表登记本轮 S3 PCM16（subslot2）和 PCM24（subslot3）的 8/16/32/44.1/48/96 kHz；HS 表登记 P4 PCM16/24/32（subslot2/3/4）各八档，另含 192/384 kHz，经 48 次播放和 UR22C input 1/2 录音对照验证。FS 的 PCM32 端点 MPS768 超过 S3 实测 FIFO600，因此被枚举阶段的 host claim 探测排除。
 

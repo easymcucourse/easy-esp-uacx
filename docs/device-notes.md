@@ -13,10 +13,18 @@
 
 ## 262a:0002 ES9318 / Savitech SA9023
 
-- 证据等级为 `verified`。驱动表记录了 2026-11-22 在 ESP32-S3 v0.2、ESP-IDF 5.5.1、USB Host 1.4.1 上的公开 API 验证。[驱动表](../components/easy-esp-uacx/drivers/drv_es9318.c) · [真实 FS 描述符](../components/easy-esp-uacx/test/fixtures/es9318_fs.h)
+- 证据等级为 `verified`。驱动表记录了 2026-11-22 在 ESP32-S3 v0.2、ESP-IDF 5.5.1、USB Host 1.4.1 上的公开 API 验证。[驱动表](../components/easy-esp-uacx/quirks/quirk_es9318.c) · [真实 FS 描述符](../components/easy-esp-uacx/test/fixtures/es9318_fs.h)
 - UAC1 Full Speed 立体声 PCM。16 位使用 2 字节 subslot（MPS 400），24 位使用 3 字节 subslot（MPS 600）。两种位深均登记 32、44.1、48、88.2、96 kHz。
 - 开流时先切到目标 alt，再向播放端点写入 3 字节采样率。Feature Unit 10 提供主通道静音和左右通道音量，专用驱动请求的初始音量为 0 dB。
-- 当前登记的硬件验证覆盖 S3 FS。P4、播放中热插拔和 30 分钟播放尚无该设备的验收记录。
+- 当前登记的硬件验证覆盖 S3 FS。同一设备接到 HS 端口时会以 `262a:0001` 枚举，见下一节。播放中热插拔和 30 分钟播放尚无该设备的验收记录。
+
+## 262a:0001 ES9318 / Savitech SA9023（HS）
+
+- 同一块 ES9318 在 P4 HS Host 口上以不同 PID 枚举为 UAC2 设备。证据等级 `verified`：2026-11-22 P4 v1.3 / COM6 / HS，ESP-IDF 5.5.1、USB Host 1.4.1。[驱动表](../components/easy-esp-uacx/quirks/quirk_es9318.c) · [真实 HS 描述符](../components/easy-esp-uacx/test/fixtures/es9318_hs.h)
+- AS 接口 2：alt 1/2/3 为 PCM16/24/32（subslot 2/3/4，MPS 200/300/400，bInterval 1），alt 4 为 RAW（不使用）。各 alt 共用异步反馈端点 0x84（MPS 4，bInterval 4 = 8 微帧）。登记 44.1、48、88.2、96、176.4、192、352.8、384 kHz。
+- 反馈端点间隔为 8 微帧时，原先固定 8 包的反馈传输为 64 个调度槽，超过 IDF ISO 描述符表的 61 个可用槽，触发 `hcd_dwc.c` 断言并重启。现按 `包数 × 间隔 ≤ 61` 计算数据和反馈传输的包数；无法调度的端点在选择 alt 时被拒绝。
+- 静音 SET 被接受，但 GET 始终返回 0。通用读回检测因此关闭静音，开流不做静音预热；音量读回正常，范围 −63 dB..0 dB / 1 dB。
+- 验收：板上 43 项测试、跨任务检查、PCM16/24/32 各八档推送/拉取共 48 次通过；ISO 错误为 0、拉取欠载为 0，三次生命周期堆差为 0，`check_validation.py` 通过。听感、开流爆音、热插拔和 30 分钟播放尚未确认。
 
 ## 2d99:a024 Edifier MF200（待确认 UAC2 的候选）
 - 现象：公开报告称音量写入有效，但读当前音量返回固定值。
