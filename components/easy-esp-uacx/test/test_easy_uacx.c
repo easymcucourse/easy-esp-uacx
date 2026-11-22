@@ -288,6 +288,30 @@ TEST_CASE("drivers: CS43131 verified FS and HS driver tables", "[euacx][drivers]
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x3302, 0x98c3, 0));
 }
 
+TEST_CASE("drivers: ES9039Q2M verified HS driver table", "[euacx][drivers]")
+{
+    const euacx_driver_t *d = euacx_driver_find(0x2fc6, 0xf800, 0);
+#ifdef CONFIG_EUACX_DRV_ES9039
+    TEST_ASSERT_EQUAL_STRING("es9039q2m", d->name);
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
+    TEST_ASSERT_EQUAL_UINT32(0, d->flags);
+    TEST_ASSERT_EQUAL_UINT8(0, d->verified->num_fs);
+    TEST_ASSERT_EQUAL_UINT8(3, d->verified->num_hs);
+    TEST_ASSERT_EQUAL_INT16(-2688, d->verified->volume_db256);
+    for (unsigned i = 0; i < 3; ++i) {
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, d->verified->hs[i].bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, d->verified->hs[i].subslot);
+        TEST_ASSERT_EQUAL_UINT8(8, d->verified->hs[i].rates.num_rates);
+        TEST_ASSERT_EQUAL_UINT32(44100, d->verified->hs[i].rates.rates[0]);
+        TEST_ASSERT_EQUAL_UINT32(384000, d->verified->hs[i].rates.rates[7]);
+    }
+#else
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, d);
+#endif
+    /* Same vendor as CS43198 (2fc6:f0fc): exact product match only. */
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x2fc6, 0xf801, 0));
+}
+
 TEST_CASE("drivers: FS OUT MPS cap requires an in-range parameter", "[euacx][drivers]")
 {
     euacx_driver_params_t params = { .fs_out_mps = 582 };

@@ -188,7 +188,7 @@ TEST_CASE("behavior: minimum mute hidden from volume range and translated to mut
     TEST_ASSERT_EQUAL(ESP_OK, euacx_hw_volume(&port, true, &volume)); TEST_ASSERT_TRUE(fake.mute[0]);
     TEST_ASSERT_EQUAL(before, requests(0x21, 1, 0x0201));
 }
-TEST_CASE("behavior: master and single channel selection preserve existing rule", "[euacx][control]")
+TEST_CASE("behavior: master volume takes the target and channels stay at unity", "[euacx][control]")
 {
     for (unsigned mask = 1; mask <= 7; ++mask) {
         init(0); euacx_feature_t *f = &dev.caps.features[0];
@@ -197,7 +197,14 @@ TEST_CASE("behavior: master and single channel selection preserve existing rule"
         unsigned ch = mask & 1 ? 0 : mask & 2 ? 1 : 2;
         TEST_ASSERT_EQUAL_UINT16(0x0200 | ch, fake.events[0].val);
         int16_t value = -4096; TEST_ASSERT_EQUAL(ESP_OK, euacx_hw_volume(&port, true, &value));
-        for (unsigned c = 0; c < 3; ++c) if (mask & (1u << c)) TEST_ASSERT_EQUAL(value, fake.volume[c]);
+        TEST_ASSERT_EQUAL(-4096, value);
+        /* Master alone, or channels without master, all take the target; with master
+         * and channels (cascaded per UAC2) only master attenuates. */
+        bool master = (mask & 1) && (mask & 6);
+        for (unsigned c = 0; c < 3; ++c) if (mask & (1u << c))
+            TEST_ASSERT_EQUAL(master && c ? 0 : -4096, fake.volume[c]);
+        int16_t read = 0; TEST_ASSERT_EQUAL(ESP_OK, euacx_hw_volume(&port, false, &read));
+        TEST_ASSERT_EQUAL(-4096, read);
     }
 }
 TEST_CASE("behavior: default and alt-first request ordering and rate readback exception", "[euacx][stream]")

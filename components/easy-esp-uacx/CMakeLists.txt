@@ -35,6 +35,9 @@ endif()
 if(CONFIG_EUACX_DRV_CS43131)
     list(APPEND srcs quirks/quirk_cs43131.c)
 endif()
+if(CONFIG_EUACX_DRV_ES9039)
+    list(APPEND srcs quirks/quirk_es9039.c)
+endif()
 
 # DoP/native DSD are private legacy helpers retained for tests only.
 idf_component_register(SRCS ${srcs}

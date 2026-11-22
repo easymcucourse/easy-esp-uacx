@@ -59,6 +59,14 @@ The CS43198 is **not supported on S3 FS**; the entry registers no FS table, so o
 - HS acceptance: 48 on-board tests; public-API push/pull for PCM16/24/32 at eight rates, 48 runs, passed with ISO errors 0, pull underruns 0, heap delta 0, and `check_validation.py` passed. In the recording all 48 cases have the same tone and noise levels and the melody pitches (C/G/A/F); high-frequency residue rises from about −31 dB to −25 dB at 352.8/384 kHz, still more than 50 dB below the tone.
 - Not yet tested: pops at stream open, hot-plug, and 30-minute playback.
 
+## 2fc6:f800 ES9039Q2M (SXW-MDL7601-INTCLK_A2)
+
+- An ES9039Q2M DAC board with product string `SXW-MDL7601-INTCLK_A2` (same vendor ID as the CS43198 above), enumerating as a UAC2 device on the P4 HS host port. Evidence level `verified`: 2026-11-22 P4 v1.3 / COM6 / HS, ESP-IDF 5.5.1, USB Host 1.4.1. [Driver table](../components/easy-esp-uacx/quirks/quirk_es9039.c) · [Real HS descriptor](../components/easy-esp-uacx/test/fixtures/es9039_hs.h)
+- 311-byte configuration. AS interface 1: alt 1/2/3 PCM16/24/32 (subslot 2/3/4), alt 4 RAW; data endpoint 0x01 asynchronous ISO OUT, bInterval 1, **MPS 776 on every alt**, so P4 needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`; feedback endpoint 0x81 (MPS 4, bInterval 4 = 8 microframes). Registered rates: 44.1, 48, 88.2, 96, 176.4, 192, 352.8, 384 kHz.
+- Feature Unit 3 has mute and volume on master plus volume on left/right (range −63.5 dB..0 dB / 0.5 dB); mute and volume readback both pass, flags 0. Master and channel volume cascade per UAC2: writing −10.5 dB to all three measured −21 dB on the recording. The library now puts the requested volume on master and holds the channels at unity (0 dB); afterwards the recording dropped exactly 10.5 dB from the device default.
+- Acceptance: 50 on-board tests; public-API push/pull for PCM16/24/32 at eight rates, 48 runs, passed with ISO errors 0, pull underruns 0, heap delta 0, and `check_validation.py` passed. The output recorded with a microphone (UR22C Input 1/2) shows the correct melody pitches at the same level in all 48 cases. Single 46 ms high-frequency bursts in the recording recur about every 7.7 s of recording time, also before playback starts and at random offsets within streams, so they come from the room or recording path, not the DAC.
+- Not yet tested: pops at stream open, hot-plug, 30-minute playback, and S3 FS.
+
 ## 2d99:a024 Edifier MF200 (candidate, UAC2 unconfirmed)
 - Symptom: a public report says volume writes take effect, but reading the current volume returns a fixed value.
 - Sources: [report and device USB log](https://lkml.rescloud.iu.edu/hypermail/linux/kernel/2605.3/12239.html), [patch series problem statement](https://patchew.org/linux/20260531-uac-quirk-get-cur-vol-v4-0-ede643dca151@rong.moe/). Only facts from the problem statement are used.
@@ -79,6 +87,6 @@ The CS43198 is **not supported on S3 FS**; the entry registers no FS table, so o
 
 ## Acceptance and admission
 
-CX31993, ES9318, CS43198, and CS43131 are registered as `verified`. CS43198 is the first new UAC2 DAC entry for L3, verified on P4 HS only (listening confirmed; hot-plug and 30-minute playback pending); its S3 FS adaptation failed, see above. CS43131 is verified on S3 FS at 44.1 kHz only and on P4 HS at eight rates (recorded output confirmed for both). Before adding a new candidate, collect the actual VID:PID, descriptors, and a reproduction of the problem.
+CX31993, ES9318, CS43198, CS43131, and ES9039Q2M are registered as `verified`. CS43198 is the first new UAC2 DAC entry for L3, verified on P4 HS only (listening confirmed; hot-plug and 30-minute playback pending); its S3 FS adaptation failed, see above. CS43131 is verified on S3 FS at 44.1 kHz only and on P4 HS at eight rates (recorded output confirmed for both). ES9039Q2M is verified on P4 HS at eight rates (recorded output confirmed). Before adding a new candidate, collect the actual VID:PID, descriptors, and a reproduction of the problem.
 
 For each candidate, record in turn the board, full descriptors, bcdDevice, sample-rate/alt request order, control writes and readbacks, and listening/recording results; update the evidence level after the matrix and volume readback are complete. Public-report entries carry no hardware-tested capability table, and guesses stay in this file only.

@@ -83,7 +83,7 @@ Once an API request is enqueued, the caller waits for the manager's reply, so a 
 
 ## Hardware volume and mute
 
-`has_volume/has_mute` indicate the control is readable and writable on the playback path. Volume is signed **1/256 dB**, e.g. −10.5 dB = −2688. set clamps to min/max and aligns down to res, sends SET to the supported master/left/right channels, then reads back with GET to confirm; get returns the first supported channel. With multiple RANGE subranges, the first is used with a warning; res 0 is treated as 1/256 dB, and a fixed or invalid range disables hardware volume. During enumeration an adjacent-step probe runs on the first read/write channel and the original value is restored; untrustworthy readback disables the corresponding control. Volume/mute failures neither block enumeration nor stop playback (a device drop is still handled as a normal disconnect).
+`has_volume/has_mute` indicate the control is readable and writable on the playback path. Volume is signed **1/256 dB**, e.g. −10.5 dB = −2688. set clamps to min/max and aligns down to res, sends SET to the supported master/left/right channels, then reads back with GET to confirm. When master and channel volume are both writable they cascade (UAC2), so the value goes on master and the channels are set to unity (0 dB, clamped to the range); get returns the first supported channel. With multiple RANGE subranges, the first is used with a warning; res 0 is treated as 1/256 dB, and a fixed or invalid range disables hardware volume. During enumeration an adjacent-step probe runs on the first read/write channel and the original value is restored; untrustworthy readback disables the corresponding control. Volume/mute failures neither block enumeration nor stop playback (a device drop is still handled as a normal disconnect).
 
 UAC1 volume range uses Feature Unit `GET_MIN`, `GET_MAX`, `GET_RES`; the current value uses `GET_CUR`. The ES9318 driver matches FS `262a:0002` and HS `262a:0001` (UAC2), with an initial volume of 0 dB.
 
@@ -97,6 +97,7 @@ The CX31993 driver matches only `06cb:1594`, with an initial volume of −10.5 d
 | `EUACX_DRV_ES9318` | y | ES9318 / SA9023 driver with S3 FS and P4 HS verified capability tables |
 | `EUACX_DRV_CS43198` | y | CS43198 (`2fc6:f0fc`) driver with P4 HS verified capability table (silent on S3 FS, see device notes); P4 needs `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
 | `EUACX_DRV_CS43131` | y | CS43131 (`3302:98c2`) driver with S3 FS (44.1 kHz only) and P4 HS (8 rates) verified tables; caps the FS ISO OUT MPS at 582 and skips GET_INTERFACE readback; P4 needs `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
+| `EUACX_DRV_ES9039` | y | ES9039Q2M (`2fc6:f800`) driver with P4 HS verified capability table; P4 needs `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
 | `EUACX_DRV_REPORTED` | y | Allow entries backed by public reports; no new entry currently meets all admission criteria |
 | `EUACX_USE_VERIFIED_CAPS` | y | Use verified capability tables (when present) |
 | `EUACX_BUFFER_MS` | 40 | Minimum buffer duration; grown to pipeline capacity and a power of two |

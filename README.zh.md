@@ -37,12 +37,14 @@
 | CS43198（YUNJI43198PRO） | `2fc6:f0fc` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz（8 档） | `EUACX_DRV_CS43198` | 2026-11-22 |
 | CS43131（“CS43198 HiFi DSP Audio”） | `3302:98c2` | UAC2 | S3 FS | 16/24/32 | 仅 44.1 kHz | `EUACX_DRV_CS43131` | 2026-11-22 |
 | CS43131（“CS43198 HiFi DSP Audio”） | `3302:98c2` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz（8 档） | `EUACX_DRV_CS43131` | 2026-11-22 |
+| ES9039Q2M（SXW-MDL7601-INTCLK_A2） | `2fc6:f800` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz（8 档） | `EUACX_DRV_ES9039` | 2026-11-22 |
 
 说明：
 
 - ES9318 在 P4 HS 下静音 GET 恒为 0，因此关闭静音读回；音量读回正常。
 - CS43198 在两种速度下都声明 776 字节 ISO OUT MPS。**S3 FS 适配失败**：各 alt 都超过 S3 600 字节 FIFO，限制 MPS 或照搬 Windows 开流顺序的实验能正常传输但始终无声，因此 S3 上不公布任何 PCM 能力（[详情](docs/device-notes.zh.md#s3-fs-适配失败)）；P4 需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`examples/p4/sdkconfig.defaults` 已设置）。
 - CS43131 同样声明 776 字节 ISO OUT MPS，在 S3 FS 下把主机管道 MPS 限制为 582 字节。其 FS 固件只能正确播放 44.1 kHz（时钟接受的其他采样率输出为乱码或静音），GET_INTERFACE 返回错误的 alt，静音读回失败，因此 FS 只登记 44.1 kHz，不提供静音。P4 HS 下八档采样率均可正常播放，与 CS43198 一样需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（[详情](docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)）。
+- ES9039Q2M 同样声明 776 字节 MPS，需要相同的 P4 FIFO 偏置。其 Feature Unit 在主通道和左右通道上都有音量，两者级联，因此库把音量写入主通道、左右通道保持 0 dB（[详情](docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)）。
 - 其他标准 UAC2 DAC 回退到 generic 驱动，可能可用但未经验证。公开报告中的候选设备（漫步者 MF200、SMSL、iFi iDSD）尚未加入驱动条目，见 [设备记录](docs/device-notes.zh.md)。
 - 如需适配新声卡，请先收集 VID:PID、完整描述符和问题复现，再按设备记录中的准入步骤提交。
 
@@ -128,6 +130,7 @@ ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，�
 | `EUACX_DRV_ES9318` | y | `262a:0002`（FS）和 `262a:0001`（HS）专用驱动、能力表及 0 dB 初始音量 |
 | `EUACX_DRV_CS43198` | y | `2fc6:f0fc` 专用驱动、P4 HS 能力表及 −10.5 dB 初始音量 |
 | `EUACX_DRV_CS43131` | y | `3302:98c2` 专用驱动：S3 FS 44.1 kHz 与 P4 HS 八档能力表、FS MPS 上限 582、跳过 alt 读回、−10.5 dB 初始音量 |
+| `EUACX_DRV_ES9039` | y | `2fc6:f800` 专用驱动、P4 HS 能力表及 −10.5 dB 初始音量 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 有已验证表时只公布表与描述符的交集；generic 使用描述符能力 |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限，按 USB 管线和 2 的幂扩容 |
 | `EUACX_NUM_TRANSFERS` | 4 | 在途 ISO 传输数（2–8） |

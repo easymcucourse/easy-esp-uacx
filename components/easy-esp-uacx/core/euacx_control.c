@@ -197,14 +197,18 @@ esp_err_t euacx_hw_volume(euacx_port_t *p, bool set, int16_t *value)
     uint32_t mask = f->volume_read & f->volume_write & 7;
     if (!set) mask = 1u << first_channel(mask);
     int16_t target = euacx_volume_snap(*value, p->info.volume_min, p->info.volume_max, p->info.volume_res);
+    /* UAC2 cascades master and channel volume: with both writable, the target goes
+     * on master and the channels are held at unity so attenuation is not doubled. */
+    bool master = (mask & 1) && (mask & 6);
+    int16_t unity = euacx_volume_snap(0, p->info.volume_min, p->info.volume_max, p->info.volume_res);
     if (set) d->volume_cached = false;
     for (unsigned ch = 0; ch < 3; ++ch) if (mask & (1u << ch)) {
-        int16_t actual = target;
+        int16_t want = master && ch ? unity : target, actual = want;
         esp_err_t e = set ? feature_value(p, ch, true, true, &actual) : ESP_OK;
         if (e == ESP_OK && (!set || !cached)) e = feature_value(p, ch, true, false, &actual);
         if (e != ESP_OK) return e;
-        if (set && actual != target) return ESP_ERR_INVALID_RESPONSE;
-        *value = actual;
+        if (set && actual != want) return ESP_ERR_INVALID_RESPONSE;
+        if (!(master && ch)) *value = actual;
     }
     d->volume_cache = *value; d->volume_cached = true;
     return ESP_OK;

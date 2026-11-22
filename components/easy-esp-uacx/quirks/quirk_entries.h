@@ -11,3 +11,4 @@ extern const euacx_driver_t euacx_quirk_es9318;
 extern const euacx_driver_t euacx_quirk_es9318_hs;
 extern const euacx_driver_t euacx_quirk_cs43198;
 extern const euacx_driver_t euacx_quirk_cs43131;
+extern const euacx_driver_t euacx_quirk_es9039;

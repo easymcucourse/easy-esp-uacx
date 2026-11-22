@@ -10,6 +10,7 @@
 #include "fixtures/es9318_hs.h"
 #include "fixtures/cs43198_hs.h"
 #include "fixtures/cs43131_fs.h"
+#include "fixtures/es9039_hs.h"
 
 static euacx_dev_caps_t model(void)
 {
@@ -154,6 +155,32 @@ TEST_CASE("parser: CS43131 FS cap lowers only ISO OUT MPS and matching alts", "[
         again.alts[i].rates = (euacx_rate_list_t){.num_rates = 1, .rates = {384000}};
         TEST_ASSERT_TRUE(euacx_alt_fits(&again.alts[i], EUACX_SPEED_HS, 384000, again.alts[i].bits));
     }
+}
+TEST_CASE("parser: real ES9039Q2M HS descriptor resolves 776-byte alts and master controls", "[euacx][parser]")
+{
+    euacx_dev_caps_t d;
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_parse(es9039_hs_config, sizeof(es9039_hs_config), &d));
+    TEST_ASSERT_FALSE(d.is_uac1);
+    TEST_ASSERT_TRUE(d.num_alts >= 3);
+    for (unsigned i = 0; i < 3; ++i) {
+        euacx_alt_t *a = &d.alts[i];
+        TEST_ASSERT_EQUAL_UINT8(1, a->interface);
+        TEST_ASSERT_EQUAL_UINT8(i + 1, a->alt);
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, a->bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, a->subslot);
+        TEST_ASSERT_EQUAL_UINT8(0x01, a->ep);
+        TEST_ASSERT_EQUAL_UINT16(776, a->mps);
+        TEST_ASSERT_EQUAL_UINT8(0x81, a->feedback_ep);
+        TEST_ASSERT_EQUAL_UINT32(8, euacx_feedback_ticks(a));
+        a->rates = (euacx_rate_list_t){.num_rates = 1, .rates = {384000}};
+        TEST_ASSERT_TRUE(euacx_alt_fits(a, EUACX_SPEED_HS, 384000, a->bits));
+    }
+    const euacx_feature_t *f = euacx_feature(&d, d.alts[0].terminal);
+    TEST_ASSERT_NOT_NULL(f);
+    TEST_ASSERT_EQUAL_UINT8(3, f->id);
+    /* Master controls 0x0f: mute and volume on channel 0, volume on 1/2. */
+    TEST_ASSERT_EQUAL_UINT32(1, f->mute_write);
+    TEST_ASSERT_EQUAL_UINT32(7, f->volume_write);
 }
 TEST_CASE("ISO scheduling: packets times interval stay within the IDF transfer list", "[euacx][iso]")
 {

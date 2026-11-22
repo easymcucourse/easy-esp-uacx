@@ -17,6 +17,9 @@ menu "Easy UAC2 playback"
     config EUACX_DRV_CS43131
         bool "Include CS43131 driver (3302:98c2; S3 FS 44.1 kHz with MPS cap, P4 HS needs periodic-OUT FIFO bias)"
         default y
+    config EUACX_DRV_ES9039
+        bool "Include ES9039Q2M driver (2fc6:f800, HS; P4 needs periodic-OUT FIFO bias)"
+        default y
     config EUACX_NUM_TRANSFERS
         int "ISO transfers in flight"
         range 2 8

@@ -59,6 +59,14 @@ CS43198 **不支持 S3 FS**；条目不登记 FS 能力表，因此在 S3 上该
 - HS 验收：板上 48 项测试；公开 API PCM16/24/32 各八档推送/拉取共 48 次通过，ISO 错误为 0、拉取欠载为 0、堆差为 0，`check_validation.py` 通过。录音中 48 项的旋律与噪声电平一致，音高（C/G/A/F）正确；高频残留在 352.8/384 kHz 时由约 −31 dB 升至 −25 dB，仍比旋律低 50 dB 以上。
 - 尚未测试：开流爆音、热插拔和 30 分钟播放。
 
+## 2fc6:f800 ES9039Q2M（SXW-MDL7601-INTCLK_A2）
+
+- 产品字符串为 `SXW-MDL7601-INTCLK_A2` 的 ES9039Q2M 解码板（厂商 ID 与上文 CS43198 相同），在 P4 HS Host 口枚举为 UAC2 设备。证据等级 `verified`：2026-11-22 P4 v1.3 / COM6 / HS，ESP-IDF 5.5.1、USB Host 1.4.1。[驱动表](../components/easy-esp-uacx/quirks/quirk_es9039.c) · [真实 HS 描述符](../components/easy-esp-uacx/test/fixtures/es9039_hs.h)
+- 配置描述符 311 字节。AS 接口 1：alt 1/2/3 为 PCM16/24/32（subslot 2/3/4），alt 4 为 RAW；数据端点 0x01 为异步 ISO OUT，bInterval 1，**每个 alt 的 MPS 都是 776**，P4 需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`；反馈端点 0x81（MPS 4，bInterval 4 = 8 微帧）。登记 44.1、48、88.2、96、176.4、192、352.8、384 kHz。
+- Feature Unit 3 在主通道上有静音和音量，左右通道上有音量（范围 −63.5 dB..0 dB / 0.5 dB）；静音和音量读回均正常，flags 为 0。按 UAC2，主通道与左右通道音量级联：三者都写 −10.5 dB 时录音实测衰减 −21 dB。现在库把设定音量写入主通道、左右通道保持单位增益（0 dB）；修改后录音电平比设备默认值恰好低 10.5 dB。
+- 验收：板上 50 项测试；公开 API PCM16/24/32 各八档推送/拉取共 48 次通过，ISO 错误为 0、拉取欠载为 0、堆差为 0，`check_validation.py` 通过。用麦克风（UR22C Input 1/2）录音，48 项的旋律音高均正确且电平一致。录音中偶发的单帧（46 ms）高频突发按录音时间约每 7.7 s 重复一次，开播前也出现，且在各流中的位置随机，因此来自环境或录音通路，而非 DAC。
+- 尚未测试：开流爆音、热插拔、30 分钟播放和 S3 FS。
+
 ## 2d99:a024 Edifier MF200（待确认 UAC2 的候选）
 - 现象：公开报告称音量写入有效，但读当前音量返回固定值。
 - 来源：[报告及设备 USB 日志](https://lkml.rescloud.iu.edu/hypermail/linux/kernel/2605.3/12239.html)、[补丁系列问题说明](https://patchew.org/linux/20260531-uac-quirk-get-cur-vol-v4-0-ede643dca151@rong.moe/)。只使用问题说明中的事实。
@@ -79,6 +87,6 @@ CS43198 **不支持 S3 FS**；条目不登记 FS 能力表，因此在 S3 上该
 
 ## 验收与录入
 
-CX31993、ES9318、CS43198 和 CS43131 已登记为 `verified`。CS43198 是 L3 首个新增的 UAC2 DAC 条目，仅在 P4 HS 上验证（听音已确认，热插拔和 30 分钟播放待确认）；S3 FS 适配失败，见上文。CS43131 在 S3 FS 上仅验证 44.1 kHz，在 P4 HS 上验证八档采样率（两者录音均已确认）。新增候选时应先采集实际 VID:PID、描述符和问题复现。
+CX31993、ES9318、CS43198、CS43131 和 ES9039Q2M 已登记为 `verified`。CS43198 是 L3 首个新增的 UAC2 DAC 条目，仅在 P4 HS 上验证（听音已确认，热插拔和 30 分钟播放待确认）；S3 FS 适配失败，见上文。CS43131 在 S3 FS 上仅验证 44.1 kHz，在 P4 HS 上验证八档采样率（两者录音均已确认）。ES9039Q2M 在 P4 HS 上验证八档采样率（录音已确认）。新增候选时应先采集实际 VID:PID、描述符和问题复现。
 
 对一个候选依次记录板型、完整描述符、bcdDevice、采样率/alt 请求顺序、控制写入和读回及听音/录音结果；完成矩阵及音量读回后更新等级。公开报告条目不带已实测能力表，猜测只保留本文件。

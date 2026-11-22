@@ -83,7 +83,7 @@ API 请求入队成功后等待 manager 回复，不会让引用调用者栈内�
 
 ## 硬件音量与静音
 
-`has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认；get 返回首个支持通道。多个 RANGE 子区间使用第一个并警告；res 为 0 时按 1/256 dB 处理，固定或无效范围禁用硬件音量。枚举期间对首个可读写通道执行相邻步进检测并恢复原值，读回不可信时禁用对应控制。音量/静音失败不阻止枚举或停止播放（设备掉线仍按正常断开处理）。
+`has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认。主通道与左右通道音量同时可写时两者级联（UAC2），因此设定值写入主通道，左右通道设为单位增益（0 dB，按范围裁剪）；get 返回首个支持通道。多个 RANGE 子区间使用第一个并警告；res 为 0 时按 1/256 dB 处理，固定或无效范围禁用硬件音量。枚举期间对首个可读写通道执行相邻步进检测并恢复原值，读回不可信时禁用对应控制。音量/静音失败不阻止枚举或停止播放（设备掉线仍按正常断开处理）。
 
 UAC1 的音量范围使用 Feature Unit `GET_MIN`、`GET_MAX`、`GET_RES`，当前值使用 `GET_CUR`。ES9318 专用驱动匹配 FS 的 `262a:0002` 和 HS 的 `262a:0001`（UAC2），初始音量为 0 dB。
 
@@ -97,6 +97,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | `EUACX_DRV_ES9318` | y | ES9318 / SA9023 专用驱动及 S3 FS、P4 HS 已验证能力表 |
 | `EUACX_DRV_CS43198` | y | CS43198（`2fc6:f0fc`）专用驱动及 P4 HS 已验证能力表（S3 FS 下无声，见设备记录）；P4 需开启 `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
 | `EUACX_DRV_CS43131` | y | CS43131（`3302:98c2`）专用驱动及 S3 FS（仅 44.1 kHz）、P4 HS（八档）已验证能力表；FS 下 ISO OUT MPS 限制为 582，跳过 GET_INTERFACE 读回；P4 需开启 `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
+| `EUACX_DRV_ES9039` | y | ES9039Q2M（`2fc6:f800`）专用驱动及 P4 HS 已验证能力表；P4 需开启 `USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` |
 | `EUACX_DRV_REPORTED` | y | 允许公开报告支持的条目；当前尚无符合全部录入条件的新条目 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 使用已验证能力表（有表时） |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限；按管线容量和 2 的幂扩容 |
