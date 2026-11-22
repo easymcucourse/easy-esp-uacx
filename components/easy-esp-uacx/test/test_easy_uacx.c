@@ -259,7 +259,7 @@ TEST_CASE("drivers: CS43198 verified HS driver table", "[euacx][drivers]")
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x2fc6, 0xf0fd, 0));
 }
 
-TEST_CASE("drivers: CS43131 verified FS driver table", "[euacx][drivers]")
+TEST_CASE("drivers: CS43131 verified FS and HS driver tables", "[euacx][drivers]")
 {
     const euacx_driver_t *d = euacx_driver_find(0x3302, 0x98c2, 0);
 #ifdef CONFIG_EUACX_DRV_CS43131
@@ -268,7 +268,7 @@ TEST_CASE("drivers: CS43131 verified FS driver table", "[euacx][drivers]")
     TEST_ASSERT_EQUAL_UINT32(EUACX_DRV_FS_OUT_MPS | EUACX_DRV_ALT_NO_READBACK, d->flags);
     TEST_ASSERT_EQUAL_UINT16(582, d->params->fs_out_mps);
     TEST_ASSERT_EQUAL_UINT8(3, d->verified->num_fs);
-    TEST_ASSERT_EQUAL_UINT8(0, d->verified->num_hs);
+    TEST_ASSERT_EQUAL_UINT8(3, d->verified->num_hs);
     TEST_ASSERT_EQUAL_INT16(-2688, d->verified->volume_db256);
     for (unsigned i = 0; i < 3; ++i) {
         TEST_ASSERT_EQUAL_UINT8(16 + i * 8, d->verified->fs[i].bits);
@@ -276,6 +276,11 @@ TEST_CASE("drivers: CS43131 verified FS driver table", "[euacx][drivers]")
         /* FS firmware only plays 44.1 kHz although its clock accepts more. */
         TEST_ASSERT_EQUAL_UINT8(1, d->verified->fs[i].rates.num_rates);
         TEST_ASSERT_EQUAL_UINT32(44100, d->verified->fs[i].rates.rates[0]);
+        TEST_ASSERT_EQUAL_UINT8(16 + i * 8, d->verified->hs[i].bits);
+        TEST_ASSERT_EQUAL_UINT8(2 + i, d->verified->hs[i].subslot);
+        TEST_ASSERT_EQUAL_UINT8(8, d->verified->hs[i].rates.num_rates);
+        TEST_ASSERT_EQUAL_UINT32(44100, d->verified->hs[i].rates.rates[0]);
+        TEST_ASSERT_EQUAL_UINT32(384000, d->verified->hs[i].rates.rates[7]);
     }
 #else
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, d);

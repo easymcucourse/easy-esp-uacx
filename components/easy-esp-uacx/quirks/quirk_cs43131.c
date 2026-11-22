@@ -5,8 +5,8 @@
  */
 #include "quirk_entries.h"
 
-/* CS43131 dongle (product string "CS43198 HiFi DSP Audio") enumerates on S3 FS as
- * 3302:98c2, UAC2 with async feedback 0x83 (bInterval 4). AS interface 1 alts 1/2/3
+/* CS43131 dongle (product string "CS43198 HiFi DSP Audio") enumerates on S3 FS and
+ * P4 HS as 3302:98c2 with a byte-identical descriptor, UAC2 with async feedback 0x83 (bInterval 4). AS interface 1 alts 1/2/3
  * are PCM16/24/32 and every alt declares a 776-byte ISO OUT MPS on endpoint 0x07,
  * above S3's 600-byte periodic OUT FIFO, so at FS the host pipe MPS is capped at
  * 582 bytes; the device never sees the cap.
@@ -17,21 +17,33 @@
  *   recorded output at other rates is garbled (PCM24/32) or muted (PCM16), the UAC1
  *   endpoint rate request STALLs for every rate but 44.1 kHz, and the feedback
  *   endpoint returns zero-length packets. The FS table therefore lists 44.1 kHz only.
- * - Mute readback fails, so mute is not offered; volume readback works. */
+ * - Mute readback fails, so mute is not offered; volume readback works.
+ *
+ * At HS (P4, which needs CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT for MPS 776)
+ * all eight rates play: the 48-case push/pull matrix passed 2026-11-22 and the
+ * recorded output showed the correct melody in every case. */
 static const euacx_verified_pcm_t fs[] = {
     { .bits = 16, .subslot = 2, .rates = { .num_rates = 1, .rates = { 44100 } } },
     { .bits = 24, .subslot = 3, .rates = { .num_rates = 1, .rates = { 44100 } } },
     { .bits = 32, .subslot = 4, .rates = { .num_rates = 1, .rates = { 44100 } } },
 };
-static const euacx_verified_caps_t caps_fs = {
-    .fs = fs, .num_fs = 3,
+static const euacx_verified_pcm_t hs[] = {
+    { .bits = 16, .subslot = 2,
+      .rates = { .num_rates = 8, .rates = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 } } },
+    { .bits = 24, .subslot = 3,
+      .rates = { .num_rates = 8, .rates = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 } } },
+    { .bits = 32, .subslot = 4,
+      .rates = { .num_rates = 8, .rates = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 } } },
+};
+static const euacx_verified_caps_t caps = {
+    .fs = fs, .num_fs = 3, .hs = hs, .num_hs = 3,
     .has_volume = true, .volume_db256 = -2688, /* -10.5 dB, as for the other headphone dongles */
-    .verified = "2026-11-22 CS43131 3302:98c2 FS public API + recorded output; S3 v0.2; IDF5.5.1 USB1.4.1",
+    .verified = "2026-11-22 CS43131 3302:98c2 public API + recorded output; S3 v0.2 FS, P4 v1.3 HS PTX bias; IDF5.5.1 USB1.4.1",
 };
 static const euacx_driver_params_t params = { .fs_out_mps = 582 };
 
 const euacx_driver_t euacx_quirk_cs43131 = {
     .name = "cs43131", .vid = 0x3302, .pid = 0x98c2,
     .flags = EUACX_DRV_FS_OUT_MPS | EUACX_DRV_ALT_NO_READBACK, .params = &params,
-    .verified = &caps_fs,
+    .verified = &caps,
 };

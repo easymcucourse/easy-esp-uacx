@@ -48,13 +48,16 @@ CS43198 **不支持 S3 FS**；条目不登记 FS 能力表，因此在 S3 上该
 
 ## 3302:98c2 CS43131（“CS43198 HiFi DSP Audio”）
 
-- 产品字符串为 `CS43198 HiFi DSP Audio` 的 CS43131 小尾巴，在 S3 FS Host 口枚举为 UAC2 设备。证据等级 `verified`：2026-11-22 S3 v0.2 / COM3 / FS，ESP-IDF 5.5.1、USB Host 1.4.1。[驱动表](../components/easy-esp-uacx/quirks/quirk_cs43131.c) · [真实 FS 描述符](../components/easy-esp-uacx/test/fixtures/cs43131_fs.h)
+- 产品字符串为 `CS43198 HiFi DSP Audio` 的 CS43131 小尾巴，在 S3 FS 和 P4 HS Host 口均以相同 ID、逐字节相同的描述符枚举为 UAC2 设备。证据等级 `verified`：2026-11-22 S3 v0.2 / COM3 / FS 及 P4 v1.3 / COM6 / HS，ESP-IDF 5.5.1、USB Host 1.4.1。[驱动表](../components/easy-esp-uacx/quirks/quirk_cs43131.c) · [真实 FS 描述符](../components/easy-esp-uacx/test/fixtures/cs43131_fs.h)
 - 结构与上文 CS43198 相同：配置描述符 343 字节，AS 接口 1 的 alt 1/2/3 为 PCM16/24/32（subslot 2/3/4），alt 4 为 RAW；数据端点 0x07 为异步 ISO OUT，**每个 alt 都声明 MPS 776**；反馈端点 0x83（MPS 4，bInterval 4），Feature Unit 10，另有一个 HID 接口。
 - 776 超过 S3 600 字节周期 OUT FIFO，条目设置 `EUACX_DRV_FS_OUT_MPS`，`fs_out_mps = 582`：FS 下在 claim 前把缓存的描述符和能力中的 MPS 降为 582。设备看不到这一限制；44.1 kHz PCM32 每帧最多 360 字节。
 - `SET_INTERFACE alt 0` 之后设备对 `GET_INTERFACE` 返回 35，导致每次开流都以 `ESP_ERR_INVALID_RESPONSE` 失败。`EUACX_DRV_ALT_NO_READBACK` 改为信任成功的 SET_INTERFACE。
 - **FS 下只有 44.1 kHz 能正确播放。** 时钟会列出并读回 48/88.2/96 kHz，矩阵在这些采样率下也 20/20 通过且 ISO 错误为 0，但用麦克风（UR22C Input 1/2）录到的输出：PCM16 48/96 kHz 静音，PCM16 88.2 kHz 为微弱噪声，PCM24/32 ≥ 48 kHz 为响亮的宽带噪声且音高不属于旋律。原因不在包大小（PCM32 44.1 kHz 与 PCM16 88.2 kHz 每帧都是 352.8 字节），也不在开流顺序（倒序采样率、先切 alt 后设采样率结果完全相同）；UAC1 端点采样率请求除 44.1 kHz 外全部 STALL。反馈端点返回零长度包，主机按标称速率发送。因此 FS 能力表对 PCM16/24/32 只登记 44.1 kHz。
 - 静音读回失败，因此不提供静音；音量读回正常（−60 dB..0 dB / 0.5 dB）。驱动请求初始音量 −10.5 dB。
-- 验收：板上 45 项测试；公开 API PCM16/24/32 在 44.1 kHz 推送/拉取共 6 次通过，ISO 错误为 0；录音显示六项旋律音高均正确。HS（P4）、开流爆音、热插拔和 30 分钟播放尚未测试。
+- **HS（P4）下八档采样率均可正常播放。** 776 字节需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（与 CS43198 相同）。HS 能力表对 PCM16/24/32 登记 44.1、48、88.2、96、176.4、192、352.8、384 kHz。`EUACX_DRV_ALT_NO_READBACK` 在两种速度下都生效；MPS 限制仅用于 FS。
+- FS 验收：板上 45 项测试；公开 API PCM16/24/32 在 44.1 kHz 推送/拉取共 6 次通过，ISO 错误为 0；录音显示六项旋律音高均正确。
+- HS 验收：板上 48 项测试；公开 API PCM16/24/32 各八档推送/拉取共 48 次通过，ISO 错误为 0、拉取欠载为 0、堆差为 0，`check_validation.py` 通过。录音中 48 项的旋律与噪声电平一致，音高（C/G/A/F）正确；高频残留在 352.8/384 kHz 时由约 −31 dB 升至 −25 dB，仍比旋律低 50 dB 以上。
+- 尚未测试：开流爆音、热插拔和 30 分钟播放。
 
 ## 2d99:a024 Edifier MF200（待确认 UAC2 的候选）
 - 现象：公开报告称音量写入有效，但读当前音量返回固定值。
@@ -76,6 +79,6 @@ CS43198 **不支持 S3 FS**；条目不登记 FS 能力表，因此在 S3 上该
 
 ## 验收与录入
 
-CX31993、ES9318、CS43198 和 CS43131 已登记为 `verified`。CS43198 是 L3 首个新增的 UAC2 DAC 条目，仅在 P4 HS 上验证（听音已确认，热插拔和 30 分钟播放待确认）；S3 FS 适配失败，见上文。CS43131 仅在 S3 FS 的 44.1 kHz 下验证（录音已确认）。新增候选时应先采集实际 VID:PID、描述符和问题复现。
+CX31993、ES9318、CS43198 和 CS43131 已登记为 `verified`。CS43198 是 L3 首个新增的 UAC2 DAC 条目，仅在 P4 HS 上验证（听音已确认，热插拔和 30 分钟播放待确认）；S3 FS 适配失败，见上文。CS43131 在 S3 FS 上仅验证 44.1 kHz，在 P4 HS 上验证八档采样率（两者录音均已确认）。新增候选时应先采集实际 VID:PID、描述符和问题复现。
 
 对一个候选依次记录板型、完整描述符、bcdDevice、采样率/alt 请求顺序、控制写入和读回及听音/录音结果；完成矩阵及音量读回后更新等级。公开报告条目不带已实测能力表，猜测只保留本文件。

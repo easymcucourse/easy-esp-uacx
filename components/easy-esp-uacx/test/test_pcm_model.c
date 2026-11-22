@@ -149,6 +149,10 @@ TEST_CASE("parser: CS43131 FS cap lowers only ISO OUT MPS and matching alts", "[
         TEST_ASSERT_EQUAL_UINT16(4, again.alts[i].feedback_mps);
         d.alts[i].rates = (euacx_rate_list_t){.num_rates = 1, .rates = {44100}};
         TEST_ASSERT_TRUE(euacx_alt_fits(&d.alts[i], EUACX_SPEED_FS, 44100, d.alts[i].bits));
+        /* The same descriptor at HS: the uncapped 776 bytes carry 384 kHz PCM32. */
+        again.alts[i] = d.alts[i]; again.alts[i].mps = 776;
+        again.alts[i].rates = (euacx_rate_list_t){.num_rates = 1, .rates = {384000}};
+        TEST_ASSERT_TRUE(euacx_alt_fits(&again.alts[i], EUACX_SPEED_HS, 384000, again.alts[i].bits));
     }
 }
 TEST_CASE("ISO scheduling: packets times interval stay within the IDF transfer list", "[euacx][iso]")

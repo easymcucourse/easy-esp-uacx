@@ -71,7 +71,7 @@ On the P4 HS port, ES9318 enumerates as `262a:0001`; the matrix covers eight rat
 
 On the P4 HS port, CS43198 enumerates as `2fc6:f0fc`; the matrix covers eight rates each for PCM16/24/32 (44.1–384 kHz), 48 push and pull cases in total. It requires `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (set in `p4/sdkconfig.defaults`). On S3 FS the CS43198 adaptation failed: it enumerates but publishes no PCM capability, see [CS43198 device notes](../docs/device-notes.md#s3-fs-adaptation-failed).
 
-On S3 FS, CS43131 enumerates as `3302:98c2`; the matrix covers 44.1 kHz for PCM16/24/32, 6 push and pull cases in total. Transport also passes at 48–96 kHz, but the recorded output there is garbled or muted, which is why only 44.1 kHz is registered: [CS43131 device notes](../docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio).
+On S3 FS, CS43131 enumerates as `3302:98c2`; the matrix covers 44.1 kHz for PCM16/24/32, 6 push and pull cases in total. Transport also passes at 48–96 kHz, but the recorded output there is garbled or muted, which is why only 44.1 kHz is registered for FS. On the P4 HS port the same `3302:98c2` covers eight rates each for PCM16/24/32 (44.1–384 kHz), 48 push and pull cases, with the periodic-OUT FIFO bias: [CS43131 device notes](../docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio).
 
 ## Configuration
 

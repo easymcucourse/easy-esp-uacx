@@ -48,13 +48,16 @@ The CS43198 is **not supported on S3 FS**; the entry registers no FS table, so o
 
 ## 3302:98c2 CS43131 ("CS43198 HiFi DSP Audio")
 
-- A CS43131 dongle whose product string reads `CS43198 HiFi DSP Audio`, enumerating as a UAC2 device on the S3 FS host port. Evidence level `verified`: 2026-11-22 S3 v0.2 / COM3 / FS, ESP-IDF 5.5.1, USB Host 1.4.1. [Driver table](../components/easy-esp-uacx/quirks/quirk_cs43131.c) · [Real FS descriptor](../components/easy-esp-uacx/test/fixtures/cs43131_fs.h)
+- A CS43131 dongle whose product string reads `CS43198 HiFi DSP Audio`, enumerating as a UAC2 device on the S3 FS and P4 HS host ports with the same ID and a byte-identical descriptor. Evidence level `verified`: 2026-11-22 S3 v0.2 / COM3 / FS and P4 v1.3 / COM6 / HS, ESP-IDF 5.5.1, USB Host 1.4.1. [Driver table](../components/easy-esp-uacx/quirks/quirk_cs43131.c) · [Real FS descriptor](../components/easy-esp-uacx/test/fixtures/cs43131_fs.h)
 - Same layout as the CS43198 above: 343-byte configuration, AS interface 1 alt 1/2/3 PCM16/24/32 (subslot 2/3/4), alt 4 RAW, data endpoint 0x07 asynchronous ISO OUT declaring **MPS 776 on every alt**, feedback endpoint 0x83 (MPS 4, bInterval 4), Feature Unit 10, plus a HID interface.
 - 776 exceeds S3's 600-byte periodic OUT FIFO, so the entry sets `EUACX_DRV_FS_OUT_MPS` with `fs_out_mps = 582`: at FS the cached descriptor and caps are lowered to 582 before claim. The device never sees the cap; 44.1 kHz PCM32 needs at most 360 bytes per frame.
 - After `SET_INTERFACE alt 0` the device answers `GET_INTERFACE` with 35, so every stream open failed with `ESP_ERR_INVALID_RESPONSE`. `EUACX_DRV_ALT_NO_READBACK` trusts a successful SET_INTERFACE instead.
 - **Only 44.1 kHz plays at FS.** The clock lists and reads back 48/88.2/96 kHz, and the matrix passed 20/20 at all of them with zero ISO errors, but the output recorded with a microphone (UR22C Input 1/2) was muted at PCM16 48/96 kHz, faint noise at PCM16 88.2 kHz, and loud broadband noise with non-melody pitches at PCM24/32 ≥ 48 kHz. It is not packet size (PCM32 44.1 kHz and PCM16 88.2 kHz both send 352.8 bytes per frame) and not open order (reversed rate order and alt-before-rate gave identical results); the UAC1 endpoint rate request STALLs for every rate except 44.1 kHz. The feedback endpoint returns zero-length packets, so the host sends at the nominal rate. The FS table therefore registers 44.1 kHz only for PCM16/24/32.
 - Mute readback fails, so mute is not offered; volume readback works (−60 dB..0 dB / 0.5 dB). The driver requests an initial volume of −10.5 dB.
-- Acceptance: 45 on-board tests; public-API push/pull at 44.1 kHz for PCM16/24/32, 6 runs, passed with ISO errors 0; the recording shows the correct melody pitches in all six. HS (P4), pops at stream open, hot-plug, and 30-minute playback are not yet tested.
+- **HS (P4) plays all eight rates.** 776 bytes needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (as for CS43198). The HS table registers 44.1, 48, 88.2, 96, 176.4, 192, 352.8, 384 kHz for PCM16/24/32. `EUACX_DRV_ALT_NO_READBACK` applies at both speeds; the MPS cap is FS-only.
+- FS acceptance: 45 on-board tests; public-API push/pull at 44.1 kHz for PCM16/24/32, 6 runs, passed with ISO errors 0; the recording shows the correct melody pitches in all six.
+- HS acceptance: 48 on-board tests; public-API push/pull for PCM16/24/32 at eight rates, 48 runs, passed with ISO errors 0, pull underruns 0, heap delta 0, and `check_validation.py` passed. In the recording all 48 cases have the same tone and noise levels and the melody pitches (C/G/A/F); high-frequency residue rises from about −31 dB to −25 dB at 352.8/384 kHz, still more than 50 dB below the tone.
+- Not yet tested: pops at stream open, hot-plug, and 30-minute playback.
 
 ## 2d99:a024 Edifier MF200 (candidate, UAC2 unconfirmed)
 - Symptom: a public report says volume writes take effect, but reading the current volume returns a fixed value.
@@ -76,6 +79,6 @@ The CS43198 is **not supported on S3 FS**; the entry registers no FS table, so o
 
 ## Acceptance and admission
 
-CX31993, ES9318, CS43198, and CS43131 are registered as `verified`. CS43198 is the first new UAC2 DAC entry for L3, verified on P4 HS only (listening confirmed; hot-plug and 30-minute playback pending); its S3 FS adaptation failed, see above. CS43131 is verified on S3 FS at 44.1 kHz only (recorded output confirmed). Before adding a new candidate, collect the actual VID:PID, descriptors, and a reproduction of the problem.
+CX31993, ES9318, CS43198, and CS43131 are registered as `verified`. CS43198 is the first new UAC2 DAC entry for L3, verified on P4 HS only (listening confirmed; hot-plug and 30-minute playback pending); its S3 FS adaptation failed, see above. CS43131 is verified on S3 FS at 44.1 kHz only and on P4 HS at eight rates (recorded output confirmed for both). Before adding a new candidate, collect the actual VID:PID, descriptors, and a reproduction of the problem.
 
 For each candidate, record in turn the board, full descriptors, bcdDevice, sample-rate/alt request order, control writes and readbacks, and listening/recording results; update the evidence level after the matrix and volume readback are complete. Public-report entries carry no hardware-tested capability table, and guesses stay in this file only.

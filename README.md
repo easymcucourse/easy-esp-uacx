@@ -36,12 +36,13 @@ DACs with a hardware-verified driver entry (environment: ESP-IDF 5.5.1, USB Host
 | ES9318 / Savitech SA9023 | `262a:0001` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz (8 rates) | `EUACX_DRV_ES9318` | 2026-11-22 |
 | CS43198 (YUNJI43198PRO) | `2fc6:f0fc` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz (8 rates) | `EUACX_DRV_CS43198` | 2026-11-22 |
 | CS43131 ("CS43198 HiFi DSP Audio") | `3302:98c2` | UAC2 | S3 FS | 16/24/32 | 44.1 kHz only | `EUACX_DRV_CS43131` | 2026-11-22 |
+| CS43131 ("CS43198 HiFi DSP Audio") | `3302:98c2` | UAC2 | P4 HS | 16/24/32 | 44.1–384 kHz (8 rates) | `EUACX_DRV_CS43131` | 2026-11-22 |
 
 Notes:
 
 - ES9318 on P4 HS reports mute GET as always 0, so mute readback is disabled; volume readback works.
 - CS43198 declares a 776-byte ISO OUT MPS at both speeds. **S3 FS adaptation failed**: every alt exceeds the S3 600-byte FIFO, and experiments that capped the MPS or copied the Windows open order streamed cleanly but stayed silent, so S3 publishes no PCM capability for it ([details](docs/device-notes.md#s3-fs-adaptation-failed)). P4 needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (already set in `examples/p4/sdkconfig.defaults`).
-- CS43131 also declares a 776-byte ISO OUT MPS; on S3 FS the host pipe MPS is capped at 582 bytes. Its FS firmware only plays 44.1 kHz (other rates accepted by the clock come out garbled or muted), answers GET_INTERFACE with a wrong alt, and fails mute readback, so it registers 44.1 kHz only, without mute ([details](docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio)).
+- CS43131 also declares a 776-byte ISO OUT MPS; on S3 FS the host pipe MPS is capped at 582 bytes. Its FS firmware only plays 44.1 kHz (other rates accepted by the clock come out garbled or muted), answers GET_INTERFACE with a wrong alt, and fails mute readback, so FS registers 44.1 kHz only, without mute. On P4 HS all eight rates play; like CS43198 it needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` ([details](docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio)).
 - Other standard UAC2 DACs fall back to the generic driver and may work, but are not verified. Reported candidates (Edifier MF200, SMSL, iFi iDSD) have no driver entry yet; see [device notes](docs/device-notes.md).
 - To add a DAC, collect its VID:PID, full descriptors and a reproduction, then follow the admission steps in the device notes.
 
@@ -126,7 +127,7 @@ The ES9318 (Savitech SA9023, `262a:0002`) S3 FS capability table contains PCM16/
 | `EUACX_DRV_CX31993` | y | Dedicated driver for `06cb:1594` with −10.5 dB initial volume |
 | `EUACX_DRV_ES9318` | y | Dedicated driver, capability tables and 0 dB initial volume for `262a:0002` (FS) and `262a:0001` (HS) |
 | `EUACX_DRV_CS43198` | y | Dedicated driver, P4 HS capability table and −10.5 dB initial volume for `2fc6:f0fc` |
-| `EUACX_DRV_CS43131` | y | Dedicated driver for `3302:98c2`: S3 FS 44.1 kHz capability table, FS MPS cap 582, alt readback skipped, −10.5 dB initial volume |
+| `EUACX_DRV_CS43131` | y | Dedicated driver for `3302:98c2`: S3 FS 44.1 kHz and P4 HS 8-rate capability tables, FS MPS cap 582, alt readback skipped, −10.5 dB initial volume |
 | `EUACX_USE_VERIFIED_CAPS` | y | When a verified table exists, publish only the intersection of the table and the descriptors; generic uses descriptor capabilities |
 | `EUACX_BUFFER_MS` | 40 | Minimum buffer duration, grown to fit the USB pipeline and rounded up to a power of two |
 | `EUACX_NUM_TRANSFERS` | 4 | In-flight ISO transfers (2–8) |
