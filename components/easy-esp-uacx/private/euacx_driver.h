@@ -55,6 +55,7 @@ typedef struct euacx_driver {
 
 extern const euacx_driver_t euacx_drv_generic;
 extern const euacx_driver_t euacx_drv_cx31993;
+extern const euacx_driver_t euacx_drv_es9318;
 
 /* Exact product takes priority over a vendor wildcard, regardless of table order. */
 const euacx_driver_t *euacx_driver_match(const euacx_driver_t *const *table,

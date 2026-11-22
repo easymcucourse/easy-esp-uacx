@@ -1,4 +1,4 @@
-# easy UAC2 组件 API
+# easy UACX 组件 API
 
 当前为 **1.0.0-rc.1**。PCM 运行时已实现；正式版本的实机验收进度见 [根 README](../../README.md) 和 [示例说明](../../examples/README.md)。唯一公开头文件是 `easy_uacx.h`，应用不需要包含 USB、FreeRTOS 或驱动表头文件。
 
@@ -16,7 +16,7 @@ ESP_ERROR_CHECK(euacx_init(&config));
 
 当前 `euacx_port_count()` 返回 1，`euacx_get_port(0)` 返回默认根端口句柄，越界返回 NULL。句柄在 init/deinit 之间保持有效，拔插不会更换句柄；deinit 后不得再保存使用旧句柄。S3 使用默认 FS Host，P4 使用默认 HS Host，第二个 P4 FS 根端口未实现。
 
-`euacx_get_info` 复制能力快照，只在 CONNECTED/STREAMING 状态成功。每次枚举增加 `conn_id`，应用处理延迟消息时应检查该值。`pcm[0/1/2]` 是 **16/24/32 位输入**各自的升序速率列表，转换后的设备容器可能更宽。默认已验证模式使用驱动表与描述符/带宽的交集；未登记专用驱动的设备使用 generic 描述符能力。GET RANGE 不可用时公布标准候选速率，开流通过 SET/GET 确认设备是否接受。
+`euacx_get_info` 复制能力快照，只在 CONNECTED/STREAMING 状态成功。每次枚举增加 `conn_id`，应用处理延迟消息时应检查该值。`pcm[0/1/2]` 是 **16/24/32 位输入**各自的升序速率列表，转换后的设备容器可能更宽。默认已验证模式使用驱动表与描述符/带宽的交集；未登记专用驱动的设备使用 generic 描述符能力。UAC2 的采样率 GET RANGE 不可用时公布标准候选速率，开流通过 SET/GET 确认。UAC1 从格式描述符读取离散速率，开流先启用 alt，再对播放端点发送 3 字节 `SET_CUR`，以请求结果判断是否成功。
 
 ## PCM 数据与播放
 
@@ -83,6 +83,8 @@ API 请求入队成功后等待 manager 回复，不会让引用调用者栈内�
 
 `has_volume/has_mute` 表示播放通路上相应控制可读写。音量是有符号 **1/256 dB**，例如 −10.5 dB = −2688。set 会裁剪到 min/max 并按 res 向下对齐，向支持的主/左右通道发送 SET，再 GET 读回确认；get 返回首个支持通道。多个 RANGE 子区间使用第一个并警告；res 为 0 时按 1/256 dB 处理，固定或无效范围禁用硬件音量。枚举期间对首个可读写通道执行相邻步进检测并恢复原值，读回不可信时禁用对应控制。音量/静音失败不阻止枚举或停止播放（设备掉线仍按正常断开处理）。
 
+UAC1 的音量范围使用 Feature Unit `GET_MIN`、`GET_MAX`、`GET_RES`，当前值使用 `GET_CUR`。ES9318 专用驱动匹配 `262a:0002`，初始音量为 0 dB。
+
 CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic 的检测会恢复设备原音量。已声明读回不可信的设备在枚举时写入最小可用音量建立缓存，不读取 CUR。支持的静音控制在枚举初始化时解除。非 ASCII 产品字符串当前用 `?` 代替。
 
 ## 配置
@@ -90,6 +92,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | 配置 | 默认 | 说明 |
 |---|---|---|
 | `EUACX_DRV_CX31993` | y | 专用驱动 |
+| `EUACX_DRV_ES9318` | y | ES9318 / SA9023 专用驱动及 S3 FS 已验证能力表 |
 | `EUACX_DRV_REPORTED` | y | 允许公开报告支持的条目；当前尚无符合全部录入条件的新条目 |
 | `EUACX_USE_VERIFIED_CAPS` | y | 使用已验证能力表（有表时） |
 | `EUACX_BUFFER_MS` | 40 | 缓冲时长下限；按管线容量和 2 的幂扩容 |
@@ -133,7 +136,7 @@ CX31993 专用驱动仅匹配 `06cb:1594`，初始音量 −10.5 dB；generic �
 | `ALT_BEFORE_RATE` | alt 0 → alt N → 设置采样率 |
 | `IFACE_DELAY` | SET_INTERFACE 到非零 alt 后等待 1–200 ms |
 
-默认顺序保持 alt 0 → 设置并读回采样率 → alt N。同位深/subslot 的 PCM alt 按最小可用 MPS 选择；设备声明有效 alt 控制时，设好频率后读取带长度字节的位图，排除无效候选，再尝试下一个。失败时回到 alt 0 并释放接口。缓冲及 ISO 传输按最终选中的 alt 分配。
+UAC2 默认顺序为 alt 0 → 设置并读回采样率 → alt N。同位深/subslot 的 PCM alt 按最小可用 MPS 选择；设备声明有效 alt 控制时，设好频率后读取带长度字节的位图，排除无效候选，再尝试下一个。失败时回到 alt 0 并释放接口。缓冲及 ISO 传输按最终选中的 alt 分配。
 
 新增条目先写事实记录，再独立实现。`verified` 必须有本项目 S3/P4 实测，能力表还需听音或录音及传输验证；`reported` 必须有包含 USB ID 和现象的公开报告，设置 `.reported = true`，受 `EUACX_DRV_REPORTED` 控制且连接日志标明证据等级；`guess` 只进文档。协议版本未确定、现象无法对应本项目标志时暂不录入。每个新设备条目应独立提交并在提交说明写明现象和证据。
 

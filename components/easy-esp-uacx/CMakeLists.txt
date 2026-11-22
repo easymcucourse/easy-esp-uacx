@@ -25,6 +25,9 @@ set(srcs
 if(CONFIG_EUACX_DRV_CX31993)
     list(APPEND srcs drivers/drv_cx31993.c)
 endif()
+if(CONFIG_EUACX_DRV_ES9318)
+    list(APPEND srcs drivers/drv_es9318.c)
+endif()
 
 # DoP/native DSD are private legacy helpers retained for tests only.
 idf_component_register(SRCS ${srcs}

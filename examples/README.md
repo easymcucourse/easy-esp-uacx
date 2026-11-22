@@ -53,8 +53,8 @@ python scripts/record_input.py --input 'Input 1/2' --seconds 105 --output tmp/p4
 
 ## 当前测试流程
 
-1. 运行 **39 项 Unity 测试**：原有私有算法、驱动表、真实 CX31993 描述符、转换/反馈/RANGE、状态权限、计数器回绕、3 次 USB Host 初始化/释放及堆恢复、实际写入拼帧/批量转换/超时/abort、状态回调内 deinit、回调队列溢出顺序与完整性、8 个任务并发提交 128 个请求。
-2. 等待 DAC，输出 `conn_id`、VID:PID、FS/HS、驱动、各输入位深能力及音量范围。设置播放时钟、设备侧 SET/GET INTERFACE；专用 CX31993 使用 −10.5 dB 初始音量。
+1. 运行板上 Unity 测试，覆盖原有私有算法、驱动表、真实 CX31993 描述符、转换/反馈/RANGE、状态权限、计数器回绕、3 次 USB Host 初始化/释放及堆恢复、实际写入拼帧/批量转换/超时/abort、状态回调内 deinit、回调队列溢出顺序与完整性、8 个任务并发提交 128 个请求。
+2. 等待 DAC，输出 `conn_id`、VID:PID、FS/HS、驱动、各输入位深能力及音量范围。开流时设置设备侧播放 alt 和采样率。CX31993 使用 −10.5 dB 初始音量，ES9318 使用 0 dB。
 3. 跨任务检查：外部任务 write/close 推送流被拒绝，abort 唤醒拥有任务；拉取回调阻塞时外部任务仍能查询音量，close 在回调退出后完成。输出 `VALIDATION`。
 4. 对 `info.pcm[0/1/2]` 的每个位深和速率，分别使用拉取/推送播放《小星星》。故意以 4093 字节非帧对齐块供数。拉取 EOF 排空；推送保留尾部播放时间再 close。
 5. 输出 `RESULT`、`MATRIX`、`VERIFIED_RATE`、`SUMMARY`。随后按配置运行 `SOAK`，每 30 秒输出 `STATS`；首轮最后可执行生命周期/堆检查并重新初始化。
@@ -62,6 +62,8 @@ python scripts/record_input.py --input 'Input 1/2' --seconds 105 --output tmp/p4
 `RESULT PASS` 表示开流、供数、连接及终止原因符合预期，仍需确认实际声音和最终 `stream stopped` 的错误/欠载统计。推送测试尾部等待期间会发送静音，可能计入欠载；30 分钟拉取验收要求全过程 `errors=0 underruns=0`，EOF 补静音不计欠载。
 
 `VERIFIED_RATE` 是登记能力表的候选，必须结合听音或录音检查和日志的实际 alt/subslot，不能直接把描述符能力写成已验证表。Matrix 配置关闭已验证过滤，Soak 配置开启过滤。CX31993 FS 表已登记本轮 PCM16/24 六档；HS 表登记 PCM16/24/32 各八档（8/16/32/44.1/48/96/192/384 kHz）。S3 PCM32 端点 MPS768 超出当前 FIFO600，正确地从能力中排除。
+
+ES9318 在 S3 FS 上的默认矩阵覆盖 PCM16/24 各五档（32、44.1、48、88.2、96 kHz），推送和拉取共 20 个用例。可在串口输出中确认 VID:PID 为 `262a:0002`、驱动为 `es9318`，并用上面的 `check_validation.py` 检查矩阵日志。硬件记录见 [ES9318 设备记录](../docs/device-notes.md#262a0002-es9318--savitech-sa9023)。
 
 ## 配置
 

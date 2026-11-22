@@ -25,6 +25,7 @@ typedef struct euacx_dev_caps {
     uint8_t source[256], clock[256], clock_controls[256];
     bool clock_fallback;
     bool saw_uac1;
+    bool is_uac1;
 } euacx_dev_caps_t;
 
 esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *caps);

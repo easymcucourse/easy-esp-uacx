@@ -28,8 +28,11 @@ esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *d)
             memset(&cur, 0, sizeof(cur)); pcm = false; channels = 0;
             cls = p[5]; sub = p[6]; proto = p[7];
             if (cls == 1 && (sub == 1 || sub == 2) && proto == 0) d->saw_uac1 = true;
-            if (cls == 1 && sub == 1 && proto == 0x20) d->ac_interface = p[2];
-            if (cls == 1 && sub == 2 && proto == 0x20 && p[3]) {
+            if (cls == 1 && sub == 1 && (proto == 0x20 || proto == 0)) {
+                d->ac_interface = p[2];
+                if (proto == 0) d->is_uac1 = true;
+            }
+            if (cls == 1 && sub == 2 && (proto == 0x20 || proto == 0) && p[3]) {
                 cur.interface = p[2]; cur.alt = p[3];
             }
         } else if (type == 0x24 && cls == 1 && proto == 0x20 && sub == 1 && len >= 4) {
@@ -54,9 +57,55 @@ esp_err_t euacx_parse(const uint8_t *data, size_t size, euacx_dev_caps_t *d)
                     }
                 }
             }
+        } else if (type == 0x24 && cls == 1 && proto == 0 && sub == 1 && len >= 4) {
+            uint8_t id = p[3];
+            if (p[2] == 2 && len >= 12) {
+                if (le16(p + 4) == 0x0101) { /* USB Streaming input terminal */
+                    if (!d->first_clock) d->first_clock = 1;
+                    d->clock[id] = 1; d->clock[1] = 1;
+                }
+            }
+            if (p[2] == 3 && len >= 9) { d->source[id] = p[7]; d->clock[id] = 1; }
+            if (p[2] == 6 && len >= 7) {
+                d->source[id] = p[4];
+                uint8_t ctrl_sz = p[5];
+                if (ctrl_sz > 0 && d->num_features < EUACX_MAX_FEATURES) {
+                    euacx_feature_t *f = &d->features[d->num_features++];
+                    f->id = id; f->source = p[4];
+                    unsigned nch = (len - 7) / ctrl_sz;
+                    for (unsigned ch = 0; ch < nch && ch < 32; ++ch) {
+                        uint8_t c = p[6 + ch * ctrl_sz];
+                        if (c & 1) { f->mute_read |= 1u << ch; f->mute_write |= 1u << ch; }
+                        if (c & 2) { f->volume_read |= 1u << ch; f->volume_write |= 1u << ch; }
+                    }
+                }
+            }
         } else if (type == 0x24 && cls == 1 && proto == 0x20 && sub == 2 && cur.alt) {
             if (len >= 16 && p[2] == 1) { pcm = p[5] == 1 && (le32(p + 6) & 1); channels = p[10]; cur.terminal = p[3]; cur.as_controls = p[4]; }
             if (len >= 6 && p[2] == 2 && p[3] == 1) { cur.subslot = p[4]; cur.bits = p[5]; }
+        } else if (type == 0x24 && cls == 1 && proto == 0 && sub == 2 && cur.alt) {
+            if (len >= 7 && p[2] == 1) { cur.terminal = p[3]; pcm = (le16(p + 5) == 1); }
+            if (len >= 8 && p[2] == 2 && p[3] == 1) {
+                channels = p[4]; cur.subslot = p[5]; cur.bits = p[6];
+                uint8_t freq_type = p[7];
+                if (freq_type > 0) {
+                    for (unsigned k = 0; k < freq_type && cur.rates.num_rates < EUACX_MAX_RATES; ++k) {
+                        if (8 + 3 * k + 2 < len) {
+                            uint32_t r = p[8 + 3 * k] | ((uint32_t)p[8 + 3 * k + 1] << 8) | ((uint32_t)p[8 + 3 * k + 2] << 16);
+                            cur.rates.rates[cur.rates.num_rates++] = r;
+                        }
+                    }
+                    for (unsigned a = 0; a < cur.rates.num_rates; ++a) {
+                        for (unsigned b = a + 1; b < cur.rates.num_rates; ++b) {
+                            if (cur.rates.rates[a] > cur.rates.rates[b]) {
+                                uint32_t tmp = cur.rates.rates[a];
+                                cur.rates.rates[a] = cur.rates.rates[b];
+                                cur.rates.rates[b] = tmp;
+                            }
+                        }
+                    }
+                }
+            }
         } else if (type == 5 && len >= 7 && cur.alt && (p[3] & 3) == 1) {
             uint16_t w = le16(p + 4);
             uint16_t mps = (w & 0x7ff) * (1 + ((w >> 11) & 3));

@@ -200,6 +200,24 @@ TEST_CASE("drivers: only verified CX31993 USB ID is registered", "[euacx][driver
     TEST_ASSERT_EQUAL_PTR(&euacx_drv_generic, euacx_driver_find(0x20b1, 0x1234, 0));
 }
 
+#ifdef CONFIG_EUACX_DRV_ES9318
+TEST_CASE("drivers: ES9318 verified driver table", "[euacx][drivers]")
+{
+    const euacx_driver_t *d = euacx_driver_find(0x262a, 0x0002, 0);
+    TEST_ASSERT_EQUAL_PTR(&euacx_drv_es9318, d);
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_driver_validate(d));
+    TEST_ASSERT_EQUAL_UINT8(2, d->verified->num_fs);
+    TEST_ASSERT_EQUAL_UINT8(16, d->verified->fs[0].bits);
+    TEST_ASSERT_EQUAL_UINT8(2, d->verified->fs[0].subslot);
+    TEST_ASSERT_EQUAL_UINT8(24, d->verified->fs[1].bits);
+    TEST_ASSERT_EQUAL_UINT8(3, d->verified->fs[1].subslot);
+    TEST_ASSERT_EQUAL_UINT8(5, d->verified->fs[0].rates.num_rates);
+    TEST_ASSERT_EQUAL_UINT8(5, d->verified->fs[1].rates.num_rates);
+    TEST_ASSERT_EQUAL_UINT32(32000, d->verified->fs[0].rates.rates[0]);
+    TEST_ASSERT_EQUAL_UINT32(96000, d->verified->fs[0].rates.rates[4]);
+}
+#endif
+
 TEST_CASE("drivers: verified tables reject invalid bit depth and rate order", "[euacx][drivers]")
 {
     euacx_verified_pcm_t pcm = { .bits = 24, .subslot = 3,

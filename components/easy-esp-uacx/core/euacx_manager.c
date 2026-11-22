@@ -35,7 +35,7 @@ static void attach(euacx_context_t *c, uint8_t addr)
     euacx_dev_t *d = calloc(1, sizeof(*d));
     esp_err_t e = d ? usb_host_get_active_config_descriptor(usb, &config) : ESP_ERR_NO_MEM;
     if (e == ESP_OK) e = euacx_parse((const uint8_t *)config, config->wTotalLength, &d->caps);
-    if (d && d->caps.saw_uac1) ESP_LOGW("euacx", "ignore UAC1 interfaces: only UAC2 playback is supported");
+    if (d && d->caps.saw_uac1 && !d->caps.is_uac1) ESP_LOGW("euacx", "ignore UAC1 interfaces: only UAC2 playback is supported");
     if (e == ESP_OK) e = usb_host_get_device_descriptor(usb, &descriptor);
     if (e == ESP_OK) e = usb_host_device_info(usb, &u);
     euacx_port_t *p = &c->port;

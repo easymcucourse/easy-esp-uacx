@@ -25,6 +25,10 @@ esp_err_t euacx_set_interface(euacx_port_t *p, uint8_t interface, uint8_t alt)
 }
 esp_err_t euacx_clock_rate(euacx_port_t *p, const euacx_alt_t *a, uint32_t hz)
 {
+    if (p->dev->caps.is_uac1) {
+        uint8_t data[3] = {(uint8_t)hz, (uint8_t)(hz >> 8), (uint8_t)(hz >> 16)};
+        return euacx_control(p, 0x22, 1, 0x0100, a->ep, data, 3);
+    }
     uint8_t data[4] = {hz, hz >> 8, hz >> 16, hz >> 24};
     uint16_t entity = (a->clock << 8) | p->dev->caps.ac_interface;
     esp_err_t e = euacx_control(p, 0x21, 1, 0x0100, entity, data, 4);
@@ -41,6 +45,7 @@ esp_err_t euacx_clock_rate(euacx_port_t *p, const euacx_alt_t *a, uint32_t hz)
 }
 void euacx_probe_rates(euacx_port_t *p)
 {
+    if (p->dev->caps.is_uac1) return;
     euacx_dev_caps_t *d = &p->dev->caps;
     for (unsigned a = 0; a < d->num_alts; ++a) {
         euacx_alt_t *alt = &d->alts[a];
@@ -71,7 +76,8 @@ static unsigned first_channel(uint32_t mask)
 static esp_err_t feature_value(euacx_port_t *p, unsigned ch, bool volume, bool set, int16_t *value)
 {
     uint8_t data[2] = {(uint8_t)*value, (uint16_t)*value >> 8};
-    esp_err_t e = euacx_control(p, set ? 0x21 : 0xa1, 1, (volume ? 0x0200 : 0x0100) | ch,
+    uint8_t req = set ? 1 : (p->dev->caps.is_uac1 ? 0x81 : 1);
+    esp_err_t e = euacx_control(p, set ? 0x21 : 0xa1, req, (volume ? 0x0200 : 0x0100) | ch,
                                (p->dev->feature->id << 8) | p->dev->caps.ac_interface,
                                data, volume ? 2 : 1);
     if (e == ESP_OK && !set) *value = volume ? (int16_t)(data[0] | (unsigned)data[1] << 8) : !!data[0];
@@ -112,6 +118,17 @@ esp_err_t euacx_probe_controls(euacx_port_t *p)
         if (flags(p) & EUACX_DRV_VOL_RANGE) {
             const euacx_driver_params_t *params = d->driver->params;
             info->volume_min = params->vol_min; info->volume_max = params->vol_max; info->volume_res = params->vol_res;
+        } else if (d->caps.is_uac1) {
+            uint8_t range[2] = {0};
+            unsigned ch = first_channel(f->volume_read & f->volume_write);
+            uint16_t entity = (f->id << 8) | d->caps.ac_interface;
+            esp_err_t e1 = euacx_control(p, 0xa1, 0x82, 0x0200 | ch, entity, range, 2);
+            if (e1 == ESP_OK) info->volume_min = (int16_t)(range[0] | ((unsigned)range[1] << 8));
+            esp_err_t e2 = euacx_control(p, 0xa1, 0x83, 0x0200 | ch, entity, range, 2);
+            if (e2 == ESP_OK) info->volume_max = (int16_t)(range[0] | ((unsigned)range[1] << 8));
+            esp_err_t e3 = euacx_control(p, 0xa1, 0x84, 0x0200 | ch, entity, range, 2);
+            if (e3 == ESP_OK) info->volume_res = (int16_t)(range[0] | ((unsigned)range[1] << 8));
+            if (e1 != ESP_OK || e2 != ESP_OK) info->has_volume = false;
         } else {
             uint8_t range[8] = {0};
             unsigned ch = first_channel(f->volume_read & f->volume_write);
@@ -237,7 +254,7 @@ esp_err_t euacx_prepare_stream(euacx_port_t *p, const euacx_stream_config_t *cfg
     /* A bit per parsed candidate avoids copying several KB onto the manager stack. */
     const euacx_dev_caps_t *candidates = &p->dev->caps;
     uint32_t excluded = 0;
-    bool early = (flags(p) & EUACX_DRV_ALT_BEFORE_RATE) != 0;
+    bool early = (flags(p) & EUACX_DRV_ALT_BEFORE_RATE) != 0 || p->dev->caps.is_uac1;
     for (unsigned attempt = 0; attempt < candidates->num_alts; ++attempt) {
         const euacx_alt_t *a = euacx_select_candidates(candidates, p->info.speed, cfg, p->dev->driver, p->info.verified, excluded);
         if (!a) return ESP_ERR_NOT_SUPPORTED;

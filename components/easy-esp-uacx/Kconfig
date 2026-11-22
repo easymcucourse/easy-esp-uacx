@@ -8,6 +8,9 @@ menu "Easy UAC2 playback"
     config EUACX_DRV_CX31993
         bool "Include CX31993 driver (06cb:1594)"
         default y
+    config EUACX_DRV_ES9318
+        bool "Include ES9318 / SA9023 driver (262a:0002)"
+        default y
     config EUACX_NUM_TRANSFERS
         int "ISO transfers in flight"
         range 2 8

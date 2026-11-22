@@ -6,6 +6,7 @@
 #include "unity_test_runner.h"
 #include "euacx_model.h"
 #include "fixtures/cx31993_fs.h"
+#include "fixtures/es9318_fs.h"
 
 static euacx_dev_caps_t model(void)
 {
@@ -39,6 +40,29 @@ TEST_CASE("parser: real CX31993 FS descriptor resolves playback clock and Featur
     broken[9] = 0;
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_SIZE, euacx_parse(broken, sizeof(broken), &d));
     TEST_ASSERT_EQUAL(ESP_ERR_INVALID_ARG, euacx_parse(cx31993_fs_config, sizeof(cx31993_fs_config) - 1, &d));
+}
+TEST_CASE("parser: real ES9318 FS descriptor resolves UAC1 alts and Feature Unit", "[euacx][parser]")
+{
+    euacx_dev_caps_t d;
+    TEST_ASSERT_EQUAL(ESP_OK, euacx_parse(es9318_fs_config, sizeof(es9318_fs_config), &d));
+    TEST_ASSERT_TRUE(d.is_uac1);
+    TEST_ASSERT_EQUAL_UINT8(2, d.num_alts);
+    TEST_ASSERT_EQUAL_UINT8(1, d.ac_interface);
+    TEST_ASSERT_EQUAL_UINT8(1, d.first_clock);
+    TEST_ASSERT_EQUAL_UINT8(16, d.alts[0].bits);
+    TEST_ASSERT_EQUAL_UINT8(2, d.alts[0].subslot);
+    TEST_ASSERT_EQUAL_UINT16(400, d.alts[0].mps);
+    TEST_ASSERT_EQUAL_UINT8(5, d.alts[0].rates.num_rates);
+    TEST_ASSERT_EQUAL_UINT32(32000, d.alts[0].rates.rates[0]);
+    TEST_ASSERT_EQUAL_UINT32(96000, d.alts[0].rates.rates[4]);
+    TEST_ASSERT_EQUAL_UINT8(24, d.alts[1].bits);
+    TEST_ASSERT_EQUAL_UINT8(3, d.alts[1].subslot);
+    TEST_ASSERT_EQUAL_UINT16(600, d.alts[1].mps);
+    const euacx_feature_t *f = euacx_feature(&d, 3);
+    TEST_ASSERT_NOT_NULL(f);
+    TEST_ASSERT_EQUAL_UINT8(10, f->id);
+    TEST_ASSERT_EQUAL_UINT32(1, f->mute_write);
+    TEST_ASSERT_EQUAL_UINT32(6, f->volume_write);
 }
 TEST_CASE("PCM selector: exact bits, narrowest conversion, bandwidth and DSD reject", "[euacx][selector]")
 {
