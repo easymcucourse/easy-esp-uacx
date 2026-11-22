@@ -1,30 +1,32 @@
 # easy-esp-uacx
 
-面向 ESP32-S3（FS）和 ESP32-P4（HS）的 USB 立体声 PCM 播放驱动，支持 UAC2 和已在 S3 验证的 UAC1 ES9318。应用只包含 `easy_uacx.h`，即可查询 DAC 能力、推送或拉取 PCM、调节硬件音量并接收状态通知。
+English | [中文](README.zh.md)
 
-## 当前状态
+USB stereo PCM playback driver for ESP32-S3 (FS) and ESP32-P4 (HS), supporting UAC2 and the ES9318 (UAC1 on S3 FS, UAC2 on P4 HS). Applications include only `easy_uacx.h` to query DAC capabilities, push or pull PCM, adjust hardware volume, and receive status notifications.
 
-**1.0.0-rc.1，正在进行硬件验收。** PCM 运行时已实现，示例已切换到公开 API。正式 `v1.0.0` 发布仍需完成新驱动的播放矩阵、听音、拔插恢复和 30 分钟播放；这些结果不会用历史参考程序的记录代替。
+## Status
 
-| 功能 | 实现 |
+**1.0.0-rc.1, hardware acceptance in progress.** The PCM runtime is implemented and the examples have moved to the public API. The official `v1.0.0` release still requires the new driver's playback matrix, listening tests, unplug/replug recovery, and a 30-minute playback run; these results will not be substituted with records from the historical reference program.
+
+| Feature | Implementation |
 |---|---|
-| 公共接口 | 初始化/释放、持久端口、状态/能力快照、连接/断开/停止回调 |
-| PCM | 16/24/32 位交错小端立体声，推送/拉取，跨调用拼帧，向更高位深转换 |
-| USB | UAC2 播放时钟与 RANGE、UAC1 离散采样率与端点频率设置、SET/GET INTERFACE、ISO 调度、显式反馈端点 |
-| 驱动 | 精确 VID:PID → 厂商通配 → generic；每次枚举建立独立设备实例 |
-| 音量 | 播放通路 Feature Unit 的音量/静音控制、范围裁剪、步进对齐及读回 |
-| 生命周期 | manager 串行状态变更、独立 USB/回调/供数任务、abort 唤醒、延迟关闭、枚举重试 |
-| 2.0 预留 | DSD/DoP 类型已定义；1.0 能力为空，开流返回 `ESP_ERR_NOT_SUPPORTED` |
+| Public API | Init/deinit, persistent port, state/capability snapshots, connect/disconnect/stop callbacks |
+| PCM | 16/24/32-bit interleaved little-endian stereo, push/pull, frame assembly across calls, conversion to higher bit depths |
+| USB | UAC2 playback clock and RANGE, UAC1 discrete sample rates and endpoint frequency setting, SET/GET INTERFACE, ISO scheduling, explicit feedback endpoint |
+| Drivers | Exact VID:PID → vendor wildcard → generic; a separate device instance per enumeration |
+| Volume | Volume/mute control on the playback-path Feature Unit, range clamping, step alignment and readback |
+| Lifecycle | Serialized state changes in the manager, separate USB/callback/data tasks, abort wakeup, deferred close, enumeration retry |
+| Reserved for 2.0 | DSD/DoP types are defined; 1.0 reports no such capability and opening a stream returns `ESP_ERR_NOT_SUPPORTED` |
 
-2026-10-05 验证：主机纯算法测试在启用/禁用 CX31993 两种配置下各 **33 项通过**；S3 实机 **37 项测试通过**，P4 实机 **39 项测试通过**，包括重复 init/deinit、堆恢复、实际批量写入和请求拥塞。两板跨任务权限/abort、拉取回调阻塞时的音量和关闭检查通过。S3 PCM16/24 六档共 24 次、P4 PCM16/24/32 八档共 48 次播放通过，拉取均零错误/零欠载。S3 启动爆音消失经用户确认；P4 384 kHz 杂音修复经 input 1/2 录音对照检查。完整 30 分钟仍待完成。
+Verified 2026-10-05: host-only algorithm tests pass **33 cases** each with CX31993 enabled and disabled; **37 tests pass** on S3 hardware and **39 tests pass** on P4 hardware, including repeated init/deinit, heap recovery, real bulk writes, and request congestion. Cross-task permission/abort checks, and volume and close checks while the pull callback is blocked, pass on both boards. S3 PCM16/24 across six configurations (24 runs) and P4 PCM16/24/32 across eight configurations (48 runs) all play successfully, with zero errors/zero underruns in pull mode. The user confirmed the S3 startup pop is gone; the P4 384 kHz noise fix was checked against input 1/2 recordings. The full 30-minute run is still pending.
 
-当前 ES9318 改动的主机回归在默认配置和关闭 CX31993 / reported 条目配置下各通过 57 项，均覆盖 ES9318 描述符和驱动表。
+Host regression for the current ES9318 changes passes 59 cases each in the default, CX31993-disabled, ES9318-disabled, and reported-entries-disabled configurations, covering ES9318 FS/HS descriptors, the driver table, and ISO scheduling packet counts.
 
-详细进度见 [计划](plan.zh.md)、[组件 API 文档](components/easy-esp-uacx/README.md) 和 [示例与验收步骤](examples/README.md)。
+For detailed progress see the [plan](plan.zh.md), the [component API docs](components/easy-esp-uacx/README.md), and the [examples and acceptance steps](examples/README.md).
 
-## 快速开始
+## Quick start
 
-验证环境：ESP-IDF **5.5.1**、USB Host **1.4.1**（组件固定此依赖）。组件要求 ESP-IDF ≥5.4；其他版本尚未验证。
+Verified environment: ESP-IDF **5.5.1**, USB Host **1.4.1** (the component pins this dependency). The component requires ESP-IDF ≥5.4; other versions are not yet verified.
 
 ```sh
 git clone https://github.com/easymcucourse/easy-esp-uacx.git
@@ -36,9 +38,9 @@ idf.py build
 idf.py -p PORT flash monitor
 ```
 
-P4 使用 `examples/p4` 和 `esp32p4`。DAC 连接到带 VBUS 供电的 Host 口，烧录/日志使用独立串口。示例先运行 Unity 测试，再按 DAC 能力运行推送/拉取矩阵。
+For P4 use `examples/p4` and `esp32p4`. Connect the DAC to a Host port with VBUS power, and use a separate serial port for flashing/logs. The example first runs the Unity tests, then runs the push/pull matrix according to the DAC's capabilities.
 
-以下拉取示例输出 1 秒设备支持的 PCM 静音，可将 `provide_pcm` 替换为解码器或音频文件供数函数：
+The pull example below outputs one second of PCM silence in a format the device supports; replace `provide_pcm` with a decoder or audio-file data provider:
 
 ```c
 #include <string.h>
@@ -80,68 +82,68 @@ void app_main(void)
 }
 ```
 
-默认已验证能力模式下，CX31993 的 FS 表包含本轮通过的 PCM16/24 六档组合，HS 表包含 PCM16/24/32 八档组合（最高 384 kHz）。开发测试可关闭 `EUACX_USE_VERIFIED_CAPS`；读取的能力按输入位深分别保存在 `info.pcm[0/1/2]`，开流仍会设置并读回采样率。
+In the default verified-capabilities mode, the CX31993 FS table contains the six PCM16/24 combinations that passed this round, and the HS table contains the eight PCM16/24/32 combinations (up to 384 kHz). For development testing you can disable `EUACX_USE_VERIFIED_CAPS`; capabilities read from the device are stored per input bit depth in `info.pcm[0/1/2]`, and opening a stream still sets and reads back the sample rate.
 
-ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，采样率为 32、44.1、48、88.2、96 kHz。使用同一套公开 API，设备细节见 [设备记录](docs/device-notes.md#262a0002-es9318--savitech-sa9023)。
+The ES9318 (Savitech SA9023, `262a:0002`) S3 FS capability table contains PCM16/24 at 32, 44.1, 48, 88.2 and 96 kHz. On the P4 HS port it enumerates as `262a:0001` in UAC2 mode, and its capability table contains PCM16/24/32 at eight rates from 44.1 to 384 kHz. It uses the same public API; see the [device notes](docs/device-notes.md#262a0002-es9318--savitech-sa9023) for details.
 
-## 测试与配置
+## Testing and configuration
 
 ```powershell
-# C:\Espressif 下的本机 ESP-IDF 安装；传 -Port 时同时烧录
+# Local ESP-IDF install under C:\Espressif; passing -Port also flashes
 ./scripts/idf_playback.ps1 -Board s3 -Port COM9
 ./scripts/idf_playback.ps1 -Board p4
-# 独立配置和构建目录，不改现有 sdkconfig
+# Separate config and build directories; existing sdkconfig is untouched
 ./scripts/idf_playback.ps1 -Board s3 -Profile Matrix -Port COM9
 ./scripts/idf_playback.ps1 -Board s3 -Profile Soak -Port COM9
-# 主机测试不需要板卡；依赖 MinGW GCC 和 ESP-IDF 自带 Unity
+# Host tests need no board; require MinGW GCC and the Unity bundled with ESP-IDF
 ./scripts/test_host.ps1
 ./scripts/test_host.ps1 -WithoutCx31993
 ```
 
-| 配置 | 默认 | 用途 |
+| Option | Default | Purpose |
 |---|---|---|
-| `EUACX_DRV_CX31993` | y | `06cb:1594` 专用驱动及 −10.5 dB 初始音量 |
-| `EUACX_DRV_ES9318` | y | `262a:0002` 专用驱动、FS 能力表及 0 dB 初始音量 |
-| `EUACX_USE_VERIFIED_CAPS` | y | 有已验证表时只公布表与描述符的交集；generic 使用描述符能力 |
-| `EUACX_BUFFER_MS` | 40 | 缓冲时长下限，按 USB 管线和 2 的幂扩容 |
-| `EUACX_NUM_TRANSFERS` | 4 | 在途 ISO 传输数（2–8） |
-| `EUACX_MAX_ERRORS` | 8 | 连续 ISO 错误达到该值时停止 |
-| `EUACX_RECOVERY_MS` | 5000 | 自行安装 Host 时，无 DAC 的根端口枚举重试间隔；0 关闭 |
-| `EXAMPLE_SOAK_SECONDS` | 0 | 设为 1800 开启矩阵后的 30 分钟 PCM24/48 kHz 播放 |
+| `EUACX_DRV_CX31993` | y | Dedicated driver for `06cb:1594` with −10.5 dB initial volume |
+| `EUACX_DRV_ES9318` | y | Dedicated driver, capability tables and 0 dB initial volume for `262a:0002` (FS) and `262a:0001` (HS) |
+| `EUACX_USE_VERIFIED_CAPS` | y | When a verified table exists, publish only the intersection of the table and the descriptors; generic uses descriptor capabilities |
+| `EUACX_BUFFER_MS` | 40 | Minimum buffer duration, grown to fit the USB pipeline and rounded up to a power of two |
+| `EUACX_NUM_TRANSFERS` | 4 | In-flight ISO transfers (2–8) |
+| `EUACX_MAX_ERRORS` | 8 | Stop after this many consecutive ISO errors |
+| `EUACX_RECOVERY_MS` | 5000 | When the component installs the Host itself, root-port enumeration retry interval while no DAC is present; 0 disables |
+| `EXAMPLE_SOAK_SECONDS` | 0 | Set to 1800 to run 30 minutes of PCM24/48 kHz playback after the matrix |
 
-任务、队列和行为细节见组件文档。主机测试覆盖解析、选择器、驱动表、位深转换、反馈解码、状态权限和环形缓冲；USB/FreeRTOS 生命周期由板上用例验证。
+See the component docs for task, queue and behavior details. Host tests cover parsing, selectors, driver tables, bit-depth conversion, feedback decoding, state permissions and the ring buffer; the USB/FreeRTOS lifecycle is verified by on-board test cases.
 
-## 硬件验证记录
+## Hardware verification log
 
-2026-10-04 使用参考程序 `examples/common/uac2_playback_demo.c`，CX31993（`06cb:1594`）PCM24，用户确认声音正常：
+2026-10-04, using the reference program `examples/common/uac2_playback_demo.c` with CX31993 (`06cb:1594`) PCM24; the user confirmed the sound was correct:
 
-| 板卡 | 速度 | 44.1 kHz | 48 kHz | 96 kHz | 192 kHz |
+| Board | Speed | 44.1 kHz | 48 kHz | 96 kHz | 192 kHz |
 |---|---|---|---|---|---|
-| S3 v0.2 | FS | PASS | PASS | PASS | 带宽不足，跳过 |
+| S3 v0.2 | FS | PASS | PASS | PASS | Insufficient bandwidth, skipped |
 | P4 v1.3 | HS | PASS | PASS | PASS | PASS |
 
-新驱动于 2026-10-05 完成 S3 PCM16/24 六档共 24 次播放，以及 P4 PCM16/24/32 八档共 48 次播放；所有拉取档位零错误/零欠载。P4 39 项板上测试通过。按用户要求录制 UR22C input 1/2，定位并修复示例逐字节生成造成的 24/32 位 384 kHz 欠载和持续杂音，复测录音无该宽带噪声。S3 长播约 13 分 42 秒后因换板中断；完整 30 分钟和播放中热插拔仍待验收，当前保留 RC 版本。旧参考播放实现已移除，历史数据保留供对照。
+On 2026-10-05 the new driver completed S3 PCM16/24 across six configurations (24 runs) and P4 PCM16/24/32 across eight configurations (48 runs); all pull configurations had zero errors/zero underruns. All 39 P4 on-board tests passed. At the user's request, UR22C input 1/2 were recorded, which located and fixed 24/32-bit 384 kHz underruns and persistent noise caused by the example generating data byte by byte; re-recording showed no such wideband noise. The S3 long run was interrupted after about 13 min 42 s due to a board swap; the full 30-minute run and hot-plug during playback are still pending acceptance, so the release remains an RC. The old reference playback implementation has been removed; historical data is kept for comparison.
 
-## 范围与限制
+## Scope and limitations
 
-1.0 范围是单 DAC、立体声 PCM。无录音、多设备、重采样或 DSD 转 PCM。当前公开一个默认 Host 端口：S3 FS、P4 HS；计划中的 P4 可选第二个 FS 根端口尚未提供后端，不能用枚举速度推断根控制器身份。
+The 1.0 scope is a single DAC with stereo PCM. There is no recording, multi-device support, resampling, or DSD-to-PCM conversion. One default Host port is currently exposed: S3 FS, P4 HS. The planned optional second FS root port on P4 does not have a backend yet, and the root controller's identity cannot be inferred from the enumeration speed.
 
-显式反馈解析及调度已实现；CX31993 这份 FS 描述符没有反馈端点，尚未以异步反馈 DAC 做硬件验证。复杂时钟选择器/倍频器使用首个时钟源回退并记录警告。硬件音量使用首个 RANGE 子区间，枚举时检测并隔离不可信控制；未支持的控制通过 `has_volume/has_mute` 和 `ESP_ERR_NOT_SUPPORTED` 表达。若应用使用已安装的 Host（`install_usb_host=false`），应用负责库事件任务、根端口恢复及最终卸载。
+Explicit feedback parsing and scheduling are implemented; this CX31993 FS descriptor has no feedback endpoint, so hardware verification with an asynchronous-feedback DAC has not been done yet. Complex clock selectors/multipliers fall back to the first clock source and log a warning. Hardware volume uses the first RANGE subrange; untrustworthy controls are detected and isolated during enumeration. Unsupported controls are reported via `has_volume/has_mute` and `ESP_ERR_NOT_SUPPORTED`. If the application uses an already-installed Host (`install_usb_host=false`), the application is responsible for the library event task, root-port recovery, and final uninstall.
 
-示例 `PASS` 表示播放流程及停止原因符合预期，声音质量仍需听音确认；最终停止日志中的 `errors/underruns` 用于验收。S3 Hub 使用 100 ms 复位恢复和 500 ms 上电等待；目前仍需验证复位后自动重连。
+An example `PASS` means the playback flow and stop reason matched expectations; sound quality still needs to be confirmed by listening. The `errors/underruns` in the final stop log are used for acceptance. The S3 hub uses a 100 ms reset recovery and a 500 ms power-on wait; automatic reconnection after reset still needs to be verified.
 
-## 目录与许可证
+## Layout and license
 
-| 路径 | 内容 |
+| Path | Contents |
 |---|---|
-| `components/easy-esp-uacx/` | 公共头文件、完整 PCM 运行时、驱动及测试 |
-| `examples/common/` | 公共 API 播放矩阵和跨任务检查 |
-| `examples/s3/`、`examples/p4/` | 板型工程和默认 USB 配置 |
-| `scripts/` | 编译烧录、主机测试、串口采集 |
-| `third_party/esp-usb/` | 唯一保留的子模块，USB 类驱动参考 |
+| `components/easy-esp-uacx/` | Public header, full PCM runtime, drivers and tests |
+| `examples/common/` | Public-API playback matrix and cross-task checks |
+| `examples/s3/`, `examples/p4/` | Board projects and default USB configuration |
+| `scripts/` | Build/flash, host tests, serial capture |
+| `third_party/esp-usb/` | The only remaining submodule, used as a USB class driver reference |
 
-自有代码采用 [MIT](LICENSE)，版权 easymcucourse；ESP-IDF 和 USB Host 依赖遵循各自许可证。设计参考 [Averyy/esp-uac2-host](https://github.com/Averyy/esp-uac2-host)（MIT），本仓库不包含其代码。
+Original code is licensed under [MIT](LICENSE), copyright easymcucourse; the ESP-IDF and USB Host dependencies follow their own licenses. The design references [Averyy/esp-uac2-host](https://github.com/Averyy/esp-uac2-host) (MIT); this repository contains none of its code.
 
-## 设备行为参考
+## Device behavior references
 
-设备行为事实参考 Linux 社区公开问题报告，协议实现依据 [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf)；本仓库不包含 Linux 代码或设备表。1.1 设备特例软件实现及验收进度见 [参考计划](plan-linux-quirks.zh.md)、[设备记录](docs/device-notes.md) 和组件贡献须知。主机测试现包含设备控制模拟；`./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` 检查关闭设备条目的配置。
+Device behavior facts are drawn from public Linux community issue reports, and the protocol implementation follows [USB-IF Audio 2.0](https://www.usb.org/sites/default/files/Audio2_with_Errata_and_ECN_through_Sep_14_2026.pdf); this repository contains no Linux code or device tables. For the 1.1 device-quirk implementation and acceptance progress, see the [reference plan](plan-linux-quirks.zh.md), the [device notes](docs/device-notes.md), and the component contribution guidelines. Host tests now include device control simulation; `./scripts/test_host.ps1 -WithoutCx31993 -WithoutReported` checks the configuration with device entries disabled.
