@@ -27,6 +27,12 @@ static const euacx_verified_caps_t caps_hs = {
     .verified = "2026-11-22 ES9039Q2M 2fc6:f800 HS public API + recorded output; P4 v1.3; IDF5.5.1 USB1.4.1 PTX bias",
 };
 
+/* No FS table: on S3 FS the board enumerates with the same ID and a byte-identical
+ * descriptor, so every alt exceeds S3's 600-byte periodic OUT FIFO. A 2026-11-22
+ * experiment that capped the host pipe MPS at 582 streamed with zero errors and
+ * rate-correct 10.14 feedback, also with alt-before-rate, but the output stayed
+ * silent at every rate (recorded via UR22C Input 1/2), as for the CS43198. */
+
 const euacx_driver_t euacx_quirk_es9039 = {
     .name = "es9039q2m", .vid = 0x2fc6, .pid = 0xf800,
     .verified = &caps_hs,
