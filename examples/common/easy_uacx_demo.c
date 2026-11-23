@@ -292,6 +292,92 @@ static void soak(const ready_t *r)
     ESP_LOGI(TAG, "SOAK status=%s reason=%d", done && atomic_load(&stop_reason) == EUACX_STOP_EOF ? "PASS" : "FAIL", atomic_load(&stop_reason));
 }
 
+#if CONFIG_EXAMPLE_CS43131_FS_TEST
+/*
+ * CS43131 (3302:98c2) Full Speed listening test (CONFIG_EXAMPLE_CS43131_FS_TEST).
+ *
+ * Its FS firmware accepts every rate on the UAC2 clock but only really plays
+ * 44.1 kHz; transport passes everywhere, so only listening (or a recording)
+ * shows the difference. Each case is announced on the serial log with the
+ * expected sound, a ticker runs while it plays, and a gap separates cases.
+ */
+typedef struct { uint8_t bits; uint32_t rate; const char *expect; } cs43131_case_t;
+static const cs43131_case_t cs43131_cases[] = {
+    {16, 44100, "MELODY"},
+    {24, 44100, "MELODY"},
+    {32, 44100, "MELODY"},
+    {16, 48000, "SILENT"},
+    {16, 88200, "FAINT NOISE"},
+    {16, 96000, "SILENT"},
+    {24, 48000, "WHITE NOISE"},
+    {24, 88200, "WHITE NOISE"},
+    {24, 96000, "WHITE NOISE"},
+    {32, 48000, "WHITE NOISE"},
+    {16, 44100, "MELODY (recovers after the noise cases)"},
+};
+static bool cs43131_advertised(const euacx_info_t *info, uint8_t bits, uint32_t rate)
+{
+    const euacx_rate_list_t *list = &info->pcm[(bits - 16) / 8];
+    for (unsigned i = 0; i < list->num_rates; ++i) if (list->rates[i] == rate) return true;
+    return false;
+}
+static void cs43131_fs_test(const ready_t *r)
+{
+    const unsigned n = sizeof(cs43131_cases) / sizeof(cs43131_cases[0]);
+    char result[sizeof(cs43131_cases) / sizeof(cs43131_cases[0])] = {0};   /* 'P' pass, 'F' fail, 'S' skipped */
+    ESP_LOGW(TAG, "CS43131 FS LISTENING TEST: %u cases, pull mode, about %u s each", n, (unsigned)(CONFIG_EXAMPLE_PLAYBACK_BARS * 1.2f + 1));
+    ESP_LOGW(TAG, "CS43131 the FS firmware only plays 44.1 kHz; the other cases are EXPECTED to be silent or white noise");
+    if (r->info.has_volume) {
+        int16_t volume = CONFIG_EXAMPLE_CS43131_TEST_VOLUME_DB * 256;
+        esp_err_t e = euacx_set_volume(r->port, volume);
+        ESP_LOGW(TAG, "CS43131 volume set to %d dB: %s", CONFIG_EXAMPLE_CS43131_TEST_VOLUME_DB, esp_err_to_name(e));
+    }
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    for (unsigned i = 0; i < n && same_connection(r); ++i) {
+        const cs43131_case_t *c = &cs43131_cases[i];
+        if (!cs43131_advertised(&r->info, c->bits, c->rate)) {
+            result[i] = 'S';
+            ESP_LOGW(TAG, "CS43131 CASE %u/%u PCM%u %lu Hz SKIPPED: not advertised (run the Cs43131 profile, verified caps off)",
+                     i + 1, n, c->bits, (unsigned long)c->rate);
+            continue;
+        }
+        ESP_LOGW(TAG, "========================================================");
+        ESP_LOGW(TAG, "CS43131 CASE %u/%u  PCM%u  %lu Hz  expect=%s", i + 1, n, c->bits, (unsigned long)c->rate, c->expect);
+        ESP_LOGW(TAG, "========================================================");
+        tone_t tone = {.rate = c->rate, .bits = c->bits, .note_frames = (uint32_t)(c->rate * 0.3f)};
+        tone.frames = tone.note_frames * 4 * CONFIG_EXAMPLE_PLAYBACK_BARS + c->rate / 10;
+        while (xSemaphoreTake(stopped, 0) == pdTRUE) {}
+        euacx_stream_config_t cfg = {.format = EUACX_FORMAT_PCM, .sample_rate = c->rate, .bits = c->bits, .channels = 2,
+            .on_data = generate, .data_user = &tone};
+        esp_err_t error = euacx_stream_open(r->port, &cfg, NULL);
+        if (error != ESP_OK) {
+            result[i] = 'F';
+            ESP_LOGE(TAG, "CS43131 CASE %u/%u open failed: %s", i + 1, n, esp_err_to_name(error));
+            continue;
+        }
+        /* Ticker: one line per second so the serial monitor shows what is playing right now. */
+        unsigned seconds = 0;
+        bool done = false;
+        while (!done && seconds < 60) {
+            done = xSemaphoreTake(stopped, pdMS_TO_TICKS(1000)) == pdTRUE;
+            if (!done) ESP_LOGI(TAG, "CS43131 PLAYING %u/%u PCM%u %lu Hz t=%us expect=%s",
+                                i + 1, n, c->bits, (unsigned long)c->rate, ++seconds, c->expect);
+        }
+        if (!done) { euacx_stream_abort(r->port); euacx_stream_close(r->port); xSemaphoreTake(stopped, portMAX_DELAY); }
+        bool ok = done && atomic_load(&stop_reason) == EUACX_STOP_EOF && atomic_load(&stop_error) == ESP_OK;
+        result[i] = ok ? 'P' : 'F';
+        ESP_LOGW(TAG, "CS43131 CASE %u/%u done transport=%s (you should have heard: %s)", i + 1, n, ok ? "PASS" : "FAIL", c->expect);
+        vTaskDelay(pdMS_TO_TICKS(1500));   /* gap so consecutive cases are easy to tell apart */
+    }
+    ESP_LOGW(TAG, "CS43131 SUMMARY (transport result; sound must be judged by ear or recording)");
+    for (unsigned i = 0; i < n; ++i)
+        ESP_LOGW(TAG, "CS43131   %2u  PCM%u %6lu Hz  %-4s  expect=%s", i + 1, cs43131_cases[i].bits,
+                 (unsigned long)cs43131_cases[i].rate,
+                 result[i] == 'P' ? "PASS" : result[i] == 'F' ? "FAIL" : result[i] == 'S' ? "SKIP" : "-", cs43131_cases[i].expect);
+    ESP_LOGW(TAG, "CS43131 test finished; replug the dongle or reset the board to repeat");
+}
+#endif
+
 /* Demo entry point, called from app_main(). Never returns. */
 void easy_uacx_demo_run(void)
 {
@@ -314,6 +400,13 @@ void easy_uacx_demo_run(void)
         ready_t r; xQueueReceive(ready_queue, &r, portMAX_DELAY);
         if (!same_connection(&r)) continue;
 
+#if CONFIG_EXAMPLE_CS43131_FS_TEST
+        /* Dedicated listening test for the CS43131 at FS instead of the matrix. */
+        if (r.info.vid == 0x3302 && r.info.pid == 0x98c2 && r.info.speed == EUACX_SPEED_FS) {
+            cs43131_fs_test(&r);
+            continue;
+        }
+#endif
         /* Library self-checks (not needed in your own application). */
         easy_uacx_validate(r.port, &r.info, stopped);
 

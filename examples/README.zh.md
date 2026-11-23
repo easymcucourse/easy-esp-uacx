@@ -29,9 +29,11 @@ P4 改为 `examples/p4` 和 `esp32p4`。Windows 的本机 ESP-IDF 位于 `C:\Esp
 ./scripts/idf_playback.ps1 -Board s3 -Profile Matrix -Port COM9
 # 已验证矩阵 + 30 分钟 PCM24/48k + 释放资源检查
 ./scripts/idf_playback.ps1 -Board s3 -Profile Soak -Port COM9
+# CS43131 S3 FS 听音测试，包括会出白噪音的采样率
+./scripts/idf_playback.ps1 -Board s3 -Profile Cs43131 -Port COM3
 ```
 
-不传 `-Port` 时只编译。Matrix/Soak 的配置和产物分别在工程的 `build/matrix/`、`build/soak/`，不改已有 `sdkconfig`；对应默认配置位于 `common/sdkconfig.matrix.defaults`、`common/sdkconfig.soak.defaults`。已存在的 profile 配置可使用该构建目录的 menuconfig 调整。
+不传 `-Port` 时只编译。Matrix/Soak/Cs43131 的配置和产物分别在工程的 `build/matrix/`、`build/soak/`、`build/cs43131/`，不改已有 `sdkconfig`；对应默认配置位于 `common/sdkconfig.matrix.defaults`、`common/sdkconfig.soak.defaults`、`common/sdkconfig.cs43131.defaults`。已存在的 profile 配置可使用该构建目录的 menuconfig 调整。
 
 关闭其他占用串口的监视器后，可采集日志：
 
@@ -78,15 +80,33 @@ python scripts/record_input.py --input 'Input 1/2' --seconds 105 --output tmp/p4
 
 `RESULT PASS` 不代表能听到声音。新条目在矩阵运行时还用麦克风录下 DAC 输出，按串口日志把录音切分到各个流，再与开播前的静音比较旋律电平、宽带噪声和音高。
 
+### CS43131 S3 FS 听音测试
+
+CS43131（`3302:98c2`）在所有 FS 采样率下传输都能通过，但其 FS 固件只能正确播放 44.1 kHz。要听出区别，烧录 `Cs43131` profile，把小尾巴接到 S3 并打开串口监视器。示例不跑矩阵，而是以拉取模式依次播放 11 个用例（每个四小节，用例间隔 1.5 s），硬件音量 −20 dB（`EXAMPLE_CS43131_TEST_VOLUME_DB`）：
+
+| # | 格式 | 预期声音 |
+|---|---|---|
+| 1–3 | PCM16/24/32，44.1 kHz | 旋律 |
+| 4 | PCM16，48 kHz | 静音 |
+| 5 | PCM16，88.2 kHz | 微弱噪声 |
+| 6 | PCM16，96 kHz | 静音 |
+| 7–9 | PCM24，48/88.2/96 kHz | **白噪音** |
+| 10 | PCM32，48 kHz | **白噪音** |
+| 11 | PCM16，44.1 kHz | 再次出现旋律（噪声后可恢复） |
+
+每个用例开始时打印 `CS43131 CASE n/11 PCMxx 采样率 expect=…` 横幅，播放期间每秒打印一次 `CS43131 PLAYING … t=Ns expect=…`，结束时打印传输结果；最后一个用例后输出汇总表。重新插拔小尾巴或复位开发板即可重复。同样音量下白噪音比旋律响，请把耳机音量放在安全水平。其他 profile 开启已验证过滤时，用例 4–10 因未公布而跳过。
+
 ## 配置
 
 | 配置 | 默认 / 用途 |
 |---|---|
 | `EXAMPLE_PLAYBACK_TEST` | y；关闭后仅运行 Unity 测试 |
-| `EXAMPLE_PLAYBACK_BARS` | 4；Matrix/Soak profile 为 1 |
+| `EXAMPLE_PLAYBACK_BARS` | 4；Matrix/Soak profile 为 1，Cs43131 为 4 |
 | `EXAMPLE_SOAK_SECONDS` | 0；Soak profile 为 1800 |
 | `EXAMPLE_LIFECYCLE_TEST` | y；Matrix profile 为 n；不影响前置 Unity 生命周期测试 |
-| `EUACX_USE_VERIFIED_CAPS` | y；Matrix 为 n，遍历描述符能力 |
+| `EUACX_USE_VERIFIED_CAPS` | y；Matrix 和 Cs43131 为 n，遍历描述符能力 |
+| `EXAMPLE_CS43131_FS_TEST` | n；Cs43131 profile 为 y：CS43131 以 FS 连接时运行听音测试而非矩阵 |
+| `EXAMPLE_CS43131_TEST_VOLUME_DB` | −20；该测试期间的硬件音量 |
 | `EUACX_NUM_TRANSFERS` | 4；范围 2–8 |
 | `ESP_MAIN_TASK_STACK_SIZE` | 16384；供板上测试和示例缓冲使用 |
 | `USB_HOST_CONTROL_TRANSFER_MAX_SIZE` | 4096；多 alt 描述符 |

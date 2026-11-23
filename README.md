@@ -42,7 +42,7 @@ DACs with a hardware-verified driver entry (environment: ESP-IDF 5.5.1, USB Host
 Notes:
 
 - **P4 HS FIFO:** CS43198, CS43131 and ES9039Q2M declare a 776-byte ISO OUT MPS, above the 512-byte periodic TX FIFO of IDF's default split. P4 needs `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT` (already set in `examples/p4/sdkconfig.defaults`).
-- **S3 FS:** the same 776 bytes exceed S3's 600-byte periodic OUT FIFO. CS43131 caps the host pipe MPS at 582 and plays only 44.1 kHz at FS; other rates its clock accepts come out garbled or muted ([details](docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio)). CS43198 and ES9039Q2M stream cleanly with such a cap but stay silent, so **their S3 FS adaptation failed** and S3 publishes no PCM capability for them ([CS43198](docs/device-notes.md#s3-fs-adaptation-failed), [ES9039Q2M](docs/device-notes.md#2fc6f800-es9039q2m-sxw-mdl7601-intclk_a2)).
+- **S3 FS:** the same 776 bytes exceed S3's 600-byte periodic OUT FIFO. CS43131 caps the host pipe MPS at 582 and plays only 44.1 kHz at FS; other rates its clock accepts come out garbled or muted ([details](docs/device-notes.md#330298c2-cs43131-cs43198-hifi-dsp-audio); hear it with the [listening test](examples/README.md#cs43131-s3-fs-listening-test)). CS43198 and ES9039Q2M stream cleanly with such a cap but stay silent, so **their S3 FS adaptation failed** and S3 publishes no PCM capability for them ([CS43198](docs/device-notes.md#s3-fs-adaptation-failed), [ES9039Q2M](docs/device-notes.md#2fc6f800-es9039q2m-sxw-mdl7601-intclk_a2)).
 - **Controls:** ES9318 on P4 HS and CS43131 report broken mute readback, so mute is not offered; volume works. CS43131 answers GET_INTERFACE with a wrong alt, so its alt readback is skipped. When master and channel volume are both writable (ES9039Q2M), the library puts the volume on master and holds the channels at 0 dB, because UAC2 cascades them.
 - Other standard UAC2 DACs fall back to the generic driver and may work, but are not verified. Reported candidates (Edifier MF200, SMSL, iFi iDSD) have no driver entry yet; see [device notes](docs/device-notes.md).
 - To add a DAC, collect its VID:PID, full descriptors and a reproduction, then follow the admission steps in the device notes.
@@ -118,6 +118,8 @@ The ES9318 (Savitech SA9023, `262a:0002`) S3 FS capability table contains PCM16/
 # Separate config and build directories; existing sdkconfig is untouched
 ./scripts/idf_playback.ps1 -Board s3 -Profile Matrix -Port COM9
 ./scripts/idf_playback.ps1 -Board s3 -Profile Soak -Port COM9
+# CS43131 S3 FS listening test (includes the white-noise rates)
+./scripts/idf_playback.ps1 -Board s3 -Profile Cs43131 -Port COM3
 # Host tests need no board; require MinGW GCC and the Unity bundled with ESP-IDF
 ./scripts/test_host.ps1
 ./scripts/test_host.ps1 -WithoutCx31993

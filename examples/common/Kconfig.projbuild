@@ -16,4 +16,24 @@ menu "UAC2 example"
     config EXAMPLE_LIFECYCLE_TEST
         bool "Test init/deinit and heap recovery after the first matrix"
         default y
+    config EXAMPLE_CS43131_FS_TEST
+        bool "CS43131 (3302:98c2) FS listening test, including the white-noise rates"
+        default n
+        help
+            When a CS43131 dongle connects at Full Speed (S3), play a fixed list
+            of cases instead of the matrix: 44.1 kHz at every bit depth, then
+            the rates its FS firmware cannot play (PCM16 48/96 kHz silent,
+            PCM16 88.2 kHz faint noise, PCM24/32 at 48 kHz and up white noise),
+            then 44.1 kHz again. The serial log announces each case and its
+            expected sound and prints a ticker while it plays. The noise rates
+            are only advertised with EUACX_USE_VERIFIED_CAPS disabled; use
+            scripts/idf_playback.ps1 -Board s3 -Profile Cs43131.
+    config EXAMPLE_CS43131_TEST_VOLUME_DB
+        int "Hardware volume during the CS43131 listening test (dB)"
+        depends on EXAMPLE_CS43131_FS_TEST
+        range -60 0
+        default -20
+        help
+            The white-noise cases are louder than the melody at the same
+            volume; keep headphones at a safe level.
 endmenu

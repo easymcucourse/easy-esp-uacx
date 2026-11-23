@@ -42,7 +42,7 @@
 说明：
 
 - **P4 HS FIFO：** CS43198、CS43131 和 ES9039Q2M 声明 776 字节 ISO OUT MPS，超过 IDF 默认分配下 512 字节的周期 TX FIFO。P4 需开启 `CONFIG_USB_HOST_HW_BUFFER_BIAS_PERIODIC_OUT`（`examples/p4/sdkconfig.defaults` 已设置）。
-- **S3 FS：** 同样的 776 字节超过 S3 600 字节周期 OUT FIFO。CS43131 把主机管道 MPS 限制为 582，FS 下只能正确播放 44.1 kHz；其时钟接受的其他采样率输出为乱码或静音（[详情](docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)）。CS43198 和 ES9039Q2M 在同样的限制下传输正常但无声，**S3 FS 适配失败**，S3 上不公布任何 PCM 能力（[CS43198](docs/device-notes.zh.md#s3-fs-适配失败)、[ES9039Q2M](docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)）。
+- **S3 FS：** 同样的 776 字节超过 S3 600 字节周期 OUT FIFO。CS43131 把主机管道 MPS 限制为 582，FS 下只能正确播放 44.1 kHz；其时钟接受的其他采样率输出为乱码或静音（[详情](docs/device-notes.zh.md#330298c2-cs43131cs43198-hifi-dsp-audio)；可用[听音测试](examples/README.zh.md#cs43131-s3-fs-听音测试)复现）。CS43198 和 ES9039Q2M 在同样的限制下传输正常但无声，**S3 FS 适配失败**，S3 上不公布任何 PCM 能力（[CS43198](docs/device-notes.zh.md#s3-fs-适配失败)、[ES9039Q2M](docs/device-notes.zh.md#2fc6f800-es9039q2msxw-mdl7601-intclk_a2)）。
 - **控制：** ES9318 在 P4 HS 下和 CS43131 的静音读回不可信，因此不提供静音，音量正常。CS43131 对 GET_INTERFACE 返回错误的 alt，因此跳过 alt 读回。主通道和左右通道音量同时可写时（ES9039Q2M），UAC2 会级联两者，库把音量写入主通道、左右通道保持 0 dB。
 - 其他标准 UAC2 DAC 回退到 generic 驱动，可能可用但未经验证。公开报告中的候选设备（漫步者 MF200、SMSL、iFi iDSD）尚未加入驱动条目，见 [设备记录](docs/device-notes.zh.md)。
 - 如需适配新声卡，请先收集 VID:PID、完整描述符和问题复现，再按设备记录中的准入步骤提交。
@@ -118,6 +118,8 @@ ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，�
 # 独立配置和构建目录，不改现有 sdkconfig
 ./scripts/idf_playback.ps1 -Board s3 -Profile Matrix -Port COM9
 ./scripts/idf_playback.ps1 -Board s3 -Profile Soak -Port COM9
+# CS43131 S3 FS 听音测试（包括白噪音采样率）
+./scripts/idf_playback.ps1 -Board s3 -Profile Cs43131 -Port COM3
 # 主机测试不需要板卡；依赖 MinGW GCC 和 ESP-IDF 自带 Unity
 ./scripts/test_host.ps1
 ./scripts/test_host.ps1 -WithoutCx31993

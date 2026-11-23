@@ -29,9 +29,11 @@ For P4 use `examples/p4` and `esp32p4`. On Windows with ESP-IDF installed at `C:
 ./scripts/idf_playback.ps1 -Board s3 -Profile Matrix -Port COM9
 # Verified matrix + 30-minute PCM24/48k + resource-release check
 ./scripts/idf_playback.ps1 -Board s3 -Profile Soak -Port COM9
+# CS43131 S3 FS listening test, including the rates that give white noise
+./scripts/idf_playback.ps1 -Board s3 -Profile Cs43131 -Port COM3
 ```
 
-Without `-Port` the script only builds. Matrix/Soak configs and artifacts live in the project's `build/matrix/` and `build/soak/` respectively and leave the existing `sdkconfig` untouched; their default configs are `common/sdkconfig.matrix.defaults` and `common/sdkconfig.soak.defaults`. An existing profile config can be adjusted with menuconfig in that build directory.
+Without `-Port` the script only builds. Matrix/Soak/Cs43131 configs and artifacts live in the project's `build/matrix/`, `build/soak/` and `build/cs43131/` respectively and leave the existing `sdkconfig` untouched; their default configs are `common/sdkconfig.matrix.defaults`, `common/sdkconfig.soak.defaults` and `common/sdkconfig.cs43131.defaults`. An existing profile config can be adjusted with menuconfig in that build directory.
 
 After closing any other monitor holding the serial port, capture logs with:
 
@@ -78,15 +80,33 @@ Matrix coverage of the registered dedicated drivers (push + pull per rate; check
 
 `RESULT PASS` does not prove audibility. New entries were also checked by recording the DAC output with a microphone while the matrix ran, splitting the recording per stream by the serial log, and comparing tone level, broadband noise and melody pitch against the silence before playback.
 
+### CS43131 S3 FS listening test
+
+The CS43131 (`3302:98c2`) passes transport at every FS rate, but its FS firmware only plays 44.1 kHz. To hear the difference, flash the `Cs43131` profile, plug the dongle into the S3, and keep the serial monitor open. Instead of the matrix, the example plays 11 cases in pull mode (four bars each, a 1.5 s gap between cases) at −20 dB hardware volume (`EXAMPLE_CS43131_TEST_VOLUME_DB`):
+
+| # | Format | Expected sound |
+|---|---|---|
+| 1–3 | PCM16/24/32, 44.1 kHz | Melody |
+| 4 | PCM16, 48 kHz | Silent |
+| 5 | PCM16, 88.2 kHz | Faint noise |
+| 6 | PCM16, 96 kHz | Silent |
+| 7–9 | PCM24, 48/88.2/96 kHz | **White noise** |
+| 10 | PCM32, 48 kHz | **White noise** |
+| 11 | PCM16, 44.1 kHz | Melody again (recovers after noise) |
+
+Each case starts with a `CS43131 CASE n/11 PCMxx rate expect=…` banner, prints `CS43131 PLAYING … t=Ns expect=…` once per second while it plays, and ends with the transport result; a summary table follows the last case. Replug the dongle or reset the board to repeat. White noise is louder than the melody at the same volume; keep headphones at a safe level. With verified filtering on (other profiles), cases 4–10 are skipped as not advertised.
+
 ## Configuration
 
 | Option | Default / purpose |
 |---|---|
 | `EXAMPLE_PLAYBACK_TEST` | y; when off, only the Unity tests run |
-| `EXAMPLE_PLAYBACK_BARS` | 4; 1 in the Matrix/Soak profiles |
+| `EXAMPLE_PLAYBACK_BARS` | 4; 1 in the Matrix/Soak profiles, 4 in Cs43131 |
 | `EXAMPLE_SOAK_SECONDS` | 0; 1800 in the Soak profile |
 | `EXAMPLE_LIFECYCLE_TEST` | y; n in the Matrix profile; does not affect the preceding Unity lifecycle tests |
-| `EUACX_USE_VERIFIED_CAPS` | y; n in Matrix to iterate descriptor capabilities |
+| `EUACX_USE_VERIFIED_CAPS` | y; n in Matrix and Cs43131 to iterate descriptor capabilities |
+| `EXAMPLE_CS43131_FS_TEST` | n; y in the Cs43131 profile: CS43131 at FS runs the listening test instead of the matrix |
+| `EXAMPLE_CS43131_TEST_VOLUME_DB` | −20; hardware volume during that test |
 | `EUACX_NUM_TRANSFERS` | 4; range 2–8 |
 | `ESP_MAIN_TASK_STACK_SIZE` | 16384; for on-board tests and example buffers |
 | `USB_HOST_CONTROL_TRANSFER_MAX_SIZE` | 4096; multi-alt descriptors |

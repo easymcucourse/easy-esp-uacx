@@ -1,7 +1,7 @@
 param(
     [ValidateSet('p4', 's3')][string]$Board = 'p4',
     [string]$Port = '',
-    [ValidateSet('Default', 'Matrix', 'Soak')][string]$Profile = 'Default'
+    [ValidateSet('Default', 'Matrix', 'Soak', 'Cs43131')][string]$Profile = 'Default'
 )
 $ErrorActionPreference = 'Stop'
 $env:IDF_TOOLS_PATH = 'C:\Espressif'
