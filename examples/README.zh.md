@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-两个工程共用 `common/easy_uacx_demo.c` 和 `common/easy_uacx_validation.c`，通过唯一公共头文件 `easy_uacx.h` 使用组件。新驱动完成两板矩阵后，旧参考播放实现已移除；历史验收数据保留在本文。
+两个工程共用 `common/easy_uacx_demo.c` 和 `common/easy_uacx_validation.c`，通过唯一公共头文件 `easy_uacx.h` 使用组件。新驱动完成两板矩阵后，旧参考播放实现已移除；历史验收数据保留在本文。`mp3_player` 是独立的应用示例，见 [MP3 播放示例](#mp3-播放示例)。
 
 ## 接线与构建
 
@@ -95,6 +95,29 @@ CS43131（`3302:98c2`）在所有 FS 采样率下传输都能通过，但其 FS 
 | 11 | PCM16，44.1 kHz | 再次出现旋律（噪声后可恢复） |
 
 每个用例开始时打印 `CS43131 CASE n/11 PCMxx 采样率 expect=…` 横幅，播放期间每秒打印一次 `CS43131 PLAYING … t=Ns expect=…`，结束时打印传输结果；最后一个用例后输出汇总表。重新插拔小尾巴或复位开发板即可重复。同样音量下白噪音比旋律响，请把耳机音量放在安全水平。其他 profile 开启已验证过滤时，用例 4–10 因未公布而跳过。
+
+## MP3 播放示例
+
+`mp3_player/` 是独立的应用示例，不属于测试矩阵。它用乐鑫 [`esp_audio_codec`](https://components.espressif.com/components/espressif/esp_audio_codec) 解码嵌入 Flash 的 MP3（`main/test.mp3`），以拉取模式把立体声 PCM 送给 DAC：
+
+```
+Flash (test.mp3) -> esp_audio_simple_dec (MP3) -> PCM 缓冲 -> easy-esp-uacx -> USB DAC
+```
+
+同一工程可构建两种板型，接线和日志口与上文 `s3` / `p4` 相同：
+
+```sh
+cd examples/mp3_player
+idf.py set-target esp32s3   # 或 esp32p4
+idf.py -p PORT flash monitor
+```
+
+- DAC 连接后先解码第一帧拿到真实采样率和位深，再打开流。驱动不做重采样：DAC 未公布该采样率/位深时只打印警告、不播放。单声道 16-bit MP3 会复制为立体声。
+- 播放结束后间隔 1 s 循环，直到拔出 DAC；重新插入后再次开始。
+- `esp_audio_codec` 限定为 `>=2.4.0,<2.6.0`，使 ESP32-P4 v1.x 板子无需芯片版本 ≥ 3.0 即可构建。
+- MP3 通过 `EMBED_FILES` 嵌入；自定义分区表给应用 2 MB `factory` 分区（4 MB Flash）。可把 `main/test.mp3` 换成约 1 MB 以内的文件，或把 `mp3_read_chunk()` 中的 Flash 读取换成 `fread()` 以从 SD 卡流式读取。
+- 解码在拉取回调中进行，因此设置 `CONFIG_EUACX_FEED_STACK=16384`。
+- 2026-11-25 在 P4（芯片 v1.3）+ CS43131（`3302:98c2`）HS 下实测：`test.mp3` 解码为 44.1 kHz/16-bit 立体声，约 40 s 播放到 EOF，errors=0、underruns=0，并循环播放；用户确认声音正常。
 
 ## 配置
 

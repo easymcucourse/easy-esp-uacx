@@ -168,6 +168,7 @@ An example `PASS` means the playback flow and stop reason matched expectations; 
 | `components/easy-esp-uacx/` | Public header, full PCM runtime, drivers and tests |
 | `examples/common/` | Public-API playback matrix and cross-task checks |
 | `examples/s3/`, `examples/p4/` | Board projects and default USB configuration |
+| `examples/mp3_player/` | MP3-from-Flash playback example (S3 and P4) |
 | `scripts/` | Build/flash, host tests, serial capture |
 | `third_party/esp-usb/` | The only remaining submodule, used as a USB class driver reference |
 

@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Both projects share `common/easy_uacx_demo.c` and `common/easy_uacx_validation.c` and use the component through its single public header `easy_uacx.h`. After the new driver completed the two-board matrix, the old reference playback implementation was removed; historical acceptance data is kept in this document.
+Both projects share `common/easy_uacx_demo.c` and `common/easy_uacx_validation.c` and use the component through its single public header `easy_uacx.h`. After the new driver completed the two-board matrix, the old reference playback implementation was removed; historical acceptance data is kept in this document. `mp3_player` is a separate application example; see [MP3 player example](#mp3-player-example).
 
 ## Wiring and building
 
@@ -95,6 +95,29 @@ The CS43131 (`3302:98c2`) passes transport at every FS rate, but its FS firmware
 | 11 | PCM16, 44.1 kHz | Melody again (recovers after noise) |
 
 Each case starts with a `CS43131 CASE n/11 PCMxx rate expect=…` banner, prints `CS43131 PLAYING … t=Ns expect=…` once per second while it plays, and ends with the transport result; a summary table follows the last case. Replug the dongle or reset the board to repeat. White noise is louder than the melody at the same volume; keep headphones at a safe level. With verified filtering on (other profiles), cases 4–10 are skipped as not advertised.
+
+## MP3 player example
+
+`mp3_player/` is a standalone application example rather than part of the test matrix. It decodes the MP3 embedded in Flash (`main/test.mp3`) with Espressif's [`esp_audio_codec`](https://components.espressif.com/components/espressif/esp_audio_codec) and feeds stereo PCM to the DAC in pull mode:
+
+```
+Flash (test.mp3) -> esp_audio_simple_dec (MP3) -> PCM buffer -> easy-esp-uacx -> USB DAC
+```
+
+The same project builds for both boards; wiring and the log port match `s3` / `p4` above:
+
+```sh
+cd examples/mp3_player
+idf.py set-target esp32s3   # or esp32p4
+idf.py -p PORT flash monitor
+```
+
+- After the DAC connects, the example decodes the first frame to get the real sample rate and bit depth, then opens the stream. The driver does not resample: if the DAC does not advertise that rate/bit depth, the example logs a warning and does not play. Mono 16-bit MP3s are duplicated to stereo.
+- Playback loops with a 1 s gap until the DAC is unplugged; on replug it starts again.
+- `esp_audio_codec` is pinned to `>=2.4.0,<2.6.0` so ESP32-P4 v1.x boards build without requiring chip rev ≥ 3.0.
+- The MP3 is embedded with `EMBED_FILES`; the custom partition table gives the app a 2 MB `factory` partition (4 MB flash). Replace `main/test.mp3` with your own file under about 1 MB, or swap the Flash read in `mp3_read_chunk()` for `fread()` to stream from an SD card.
+- `CONFIG_EUACX_FEED_STACK=16384` because the decoder runs inside the pull callback.
+- Tested 2026-11-25 on P4 (chip v1.3) with CS43131 (`3302:98c2`) at HS: `test.mp3` decodes as 44.1 kHz/16-bit stereo, plays about 40 s to EOF with 0 errors and 0 underruns, and loops; the user confirmed the sound was correct.
 
 ## Configuration
 

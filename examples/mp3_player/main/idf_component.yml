@@ -1,0 +1,3 @@
+dependencies:
+  # Pin <2.6.0 so ESP32-P4 v1.x boards build without requiring P4 rev >= 3.0.
+  espressif/esp_audio_codec: ">=2.4.0,<2.6.0"

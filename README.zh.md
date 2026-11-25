@@ -168,6 +168,7 @@ ES9318（Savitech SA9023，`262a:0002`）的 S3 FS 能力表包含 PCM16/24，�
 | `components/easy-esp-uacx/` | 公共头文件、完整 PCM 运行时、驱动及测试 |
 | `examples/common/` | 公共 API 播放矩阵和跨任务检查 |
 | `examples/s3/`、`examples/p4/` | 板型工程和默认 USB 配置 |
+| `examples/mp3_player/` | 从 Flash 播放 MP3 的示例（S3 和 P4） |
 | `scripts/` | 编译烧录、主机测试、串口采集 |
 | `third_party/esp-usb/` | 唯一保留的子模块，USB 类驱动参考 |
 
